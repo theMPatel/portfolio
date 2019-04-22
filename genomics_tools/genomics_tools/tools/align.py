@@ -180,7 +180,7 @@ def align_blast(query, blastdb, settings, env):
     # This is the output format that blastn will output
     # 7 is a specific type of predefined header combination
     # providing those headers after the 7 allows you to specify
-    # extras that may not be inlcuded in the 7 predefinition
+    # extras that may not be included in the 7 predefinition
     blast_format = [
         '7',
         'qseqid',
@@ -223,7 +223,7 @@ def align_blast(query, blastdb, settings, env):
        '-task', settings.task,
        '-query', query,
        '-db', blastdb,
-       # Subtract 1 to inlcude room for the parent that
+       # Subtract 1 to include room for the parent that
        # calls this
        '-num_threads', str(max(1, min(4, env.threads-1))),
        '-out', outputfile,
@@ -440,7 +440,7 @@ class GenotypeResults(object):
             handler = GenotypeResults.hit_handlers[aligner]
         
         else:
-            raise RuntimeError('Requested non-existant aligner')
+            raise RuntimeError('Requested non-existent aligner')
 
         # Make sure the settings provided has the correct settings in it
         required_settings = ['relative_minlen', 'absolute_minlen']

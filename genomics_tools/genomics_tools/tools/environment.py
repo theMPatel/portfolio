@@ -11,16 +11,19 @@
 ###################################################################
 
 import base64
-import os
-import json
-import logging
-import inspect
 import collections
-import logging.handlers
 from copy import deepcopy
 from datetime import datetime
+import inspect
+import json
+import logging
+import logging.handlers
+import os
+import shutil
+import tempfile
 
 from .config import Settings
+from . import deprecated
 
 __all__ = [
     'sanitize_path',
@@ -35,9 +38,12 @@ __all__ = [
     'ResultWriter'
     ]
 
+def find_executable_path(name):
+    return full_path(shutil.which(name))
+
 def sanitize_path(path):
-    # Required to remove quotes from bionumerics
-    # caller script on Calculation Engine
+    # Required to remove quotes from BioNumerics
+    # caller script on the Calculation Engine
     return path.replace('"', '').replace("'", "")
 
 def valid_dir(path):
@@ -52,6 +58,9 @@ def check_dir(path):
     return os.path.isdir(path)
 
 def full_path(path):
+    if path is None:
+        return path
+    
     return os.path.realpath(
                 os.path.expanduser(
                     os.path.expandvars(path)
@@ -63,10 +72,10 @@ def check_nonempty_file(path):
 
 # ############################ IMPORTANT ####################################
 
-# The below base_depth variable get's set at runtime (and it could
-# be from literally anywhere)
-# So that we can tell what depth we are based on whatever module we are 
-# running
+# The below base_depth variable gets set at runtime (and it could
+# be from literally anywhere) so that we can calculate the tab
+# depth for the log files based on the length of the call stack
+# in whatever module we are currently running.
 # 
 # By default if this value is 0, then no tabs get printed, otherwise it must be
 # a negative value (hence base depth)
@@ -85,13 +94,23 @@ def set_base_depth(value):
         # the intention of the user
         raise ValueError('Base depth value must be int type')
 
+def get_base_depth():
+    """
+    Getter for the base depth thats used in the logging
+
+    :returns: The base depth for the log files
+    :rtype: int
+    """
+    global base_depth
+    return base_depth
+
 def get_stack_len():
     return len(inspect.stack())-1
 
 def get_message_depth(base_depth, extra=0):
     """
     Assumes that this is an internal logging function
-    that the call stack looks like:
+    and that the call stack looks like:
 
     worker -> log message -> check message depth
     """
@@ -239,24 +258,32 @@ def write_results(name, content, b64encode=True):
     else:
         ResultWriter.current.add_result(name, content, b64encode)
 
+# These are tokens for the paths to various assets attached to the
+# compute nodes. We used them to dynamically replace the head of
+# a path with something that the compute node was familiar with
+# For example: [DBVERSIONDIR]/genotyping/database/ecoli
+# might be replaced: /mnt/share/genotyping/database/ecoli
 _ALGO_VERSION_TOKEN = '[ALGOVERSIONDIR]'
 _DB_VERSION_TOKEN = '[DBVERSIONDIR]'
 class Environment(object):
 
-    def __init__(self, settings):
-
-        if settings is None:
-            raise RuntimeError('Missing settings for environment'
-                ' creation.')
+    def __init__(self):
 
         # These are the settings we should be able to expect
         self._attrs = ['_resultsdir', '_localdir',
             '_shareddir', '_toolsdir', '_tempdir']
 
-        # Run the setup tasks
-        self.setup(settings)
+        for attr in self._attrs:
+            setattr(self, attr, None)
 
+    @deprecated
     def get_sharedpath(self, path):
+        """
+        This function is deprecated for portfolio use. The original
+        intention with this function was to provide a way to
+        dynamically get the shared network drive that was mounted
+        on all of the compute nodes.
+        """
         
         if not path:
             return ''
@@ -269,7 +296,15 @@ class Environment(object):
 
         return path
 
+    @deprecated
     def get_version_path(self, path):
+        """
+        This function is deprecated for portfolio use. The original
+        intention with this function was to provide a way
+        to dynamically get the text file that contained the version
+        information for a particular algorithm and it's accompanying
+        database
+        """
 
         if not path:
             return ''
@@ -313,10 +348,10 @@ class Environment(object):
         return deepcopy(self)
 
     def setup(self, settings):
-        # For each of the attr, set up the variables
-        # to accept new values
-        for attr in self._attrs:
-            setattr(self, attr, None)
+
+        if settings is None:
+            raise RuntimeError('Missing settings for environment'
+                ' creation.')
 
         # Get the paths for the environment
         for setting in settings:
