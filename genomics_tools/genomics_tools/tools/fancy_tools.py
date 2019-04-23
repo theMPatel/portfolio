@@ -44,43 +44,6 @@ class Disjointset(object):
             if self._rank[real_destination] == self._rank[real_source]:
                 self._rank[real_source] += 1
 
-class DecisionTree(object):
-
-    def __init__(self):
-        self._attr = None
-        self._value = None
-        self._tree = {}
-
-    def update(self, branch):
-        # Attrs should come in transposed and sorted by column header
-        # values of attrs can only be True or False
-
-        if not self._attr:
-            self._attr = branch[0][0]
-
-        else:
-            assert self._attr == branch[0][0]
-
-        if isinstance(branch[0][1], basestring):
-            self._value = branch[0][1]
-
-        elif branch[0][1] in self._tree:
-            self._tree[branch[0][1]].update(branch[1:])
-
-        else:
-            self._tree[branch[0][1]] = DecisionTree()
-            self._tree[branch[0][1]].update(branch[1:])
-
-    def recurse(self, branch):
-
-        if self._value:
-            return self._value
-
-        elif not branch[0][0] == self._attr:
-            return
-
-        else:
-            return self._tree[branch[0][1]].recurse(branch[1:])
 
 def edit_distance(c, n, matrix=False):
     c_l = len(c)

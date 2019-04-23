@@ -9,16 +9,18 @@
 ###################################################################
 
 import base64
-import os
-import sys
-import gzip
-import json
-import shutil
 import binascii
+import gzip
+import io
+import json
+import os
+import shutil
 import subprocess as sp
-from string import maketrans
-from itertools import izip, combinations
+import sys
+
 from collections import OrderedDict, namedtuple
+from itertools import combinations
+from string import maketrans
 
 from Bio import SeqIO
 
@@ -437,7 +439,7 @@ def binary_search(arr, value, lo, hi):
 def check_mismatches(seq1, seq2):
     mismatches = 0
 
-    for nuc1, nuc2 in izip(seq1, seq2):
+    for nuc1, nuc2 in zip(seq1, seq2):
 
         if nuc1 == nuc2:
             continue
@@ -449,77 +451,11 @@ def check_mismatches(seq1, seq2):
 
     return mismatches
 
-# TODO rewrite to fit with code-base
-def parse_paired_files(readFiles):
-    """
-    Written by not me as you can see
-    """
-    
-    tokens = [['_1.', '_R1_', '_R1'], ['_2.', '_R2_', '_R2']]
+def chunked_file_reader(file_obj, chunk_size=io.DEFAULT_BUFFER_SIZE):
+    while True:
+        data = file_obj.read(chunk_size)
 
-    singleFiles = []
-    pairedFiles = []
-    pairedFilesDict = {}
-    for fl in readFiles:
-        isFirst = any(token in fl for token in tokens[0])
-        isSecond = any(token in fl for token in tokens[1])
-        if not isFirst and not isSecond:
-            singleFiles.append(fl)
-        else:
-            if isFirst:
-                if fl not in pairedFilesDict:
-                    pairedFilesDict[fl] = [fl, '']
-                else:
-                    pairedFilesDict[fl][0] = fl
-            if isSecond:
-                firstFl = fl
-                for t1, t2 in izip(tokens[0], tokens[1]):
-                    firstFl = firstFl.replace(t2, t1)
-                if firstFl not in pairedFilesDict:
-                    pairedFilesDict[firstFl] = ['', fl]
-                else:
-                    pairedFilesDict[firstFl][1] = fl
-    for flPair in pairedFilesDict.itervalues():
-        if flPair[0] == '' and flPair[1] != '':
-            singleFiles.append(flPair[1])
-            continue
-        if flPair[0] != '' and flPair[1] == '':
-            singleFiles.append(flPair[0])
-            continue
-        pairedFiles.append(flPair)
+        if not data:
+            break
 
-    return singleFiles, pairedFiles
-
-def counter(l):
-    c = {}
-
-    for i in l:
-
-        if i in c:
-            c[i] += 1
-        else:
-            c[i] = 1
-
-    return c
-
-# TODO rewrite to fit with code-base
-def combine_fastas(inputFastaList, outputFasta):
-    fastaRecords = list()
-
-    for fastaFL in inputFastaList:
-        handle=None
-        if os.path.splitext(fastaFL)[1] == ".gz":
-            handle = gzip.open(fastaFL, 'rU')
-        else:
-            handle = open(fastaFL, 'rU')
-        for record in SeqIO.parse(handle, "fasta"):
-            fastaRecords.append(record)
-        handle.close()
-
-    fastaIDs = [record.id for record in fastaRecords]
-
-    assert len(set(fastaIDs)) == len(fastaIDs),"There are some non-unique reference names!"
-
-    SeqIO.write(fastaRecords, outputFasta, "fasta")
-
-    return outputFasta
+        yield data
