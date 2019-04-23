@@ -14,10 +14,38 @@
 #
 ###################################################################
 
-from setuptools import setup
-from setuptools.command.develop import develop
-from setuptools.command.install import install
+def install_package(package):
+    """
+    Infrastructure to install packages at runtime in case they
+    are not present in the system libraries.
+    """
 
+    if not isinstance(package, str):
+        raise TypeError('String required for package installation')
+
+    if not package:
+        raise ValueError('Recieved empty string for package installation')
+
+    import pip
+
+    if hasattr(pip, 'main'):
+        pip.main(['install', package])
+    else:
+        pip._internal.main(['install', package])
+
+try:
+    # There's a chance you don't have this installed
+    import setuptools
+except ImportError:
+    # If we fail here, not much else I can do
+    install_package("setuptools")
+
+finally:
+    from setuptools import setup
+    from setuptools.command.develop import develop
+    from setuptools.command.install import install
+
+from distutils import log
 import ftplib
 import functools
 import hashlib
@@ -25,8 +53,10 @@ import io
 import os
 import shutil
 import sys
+import tarfile
 import tempfile
 import traceback
+
 
 def prompt_continue(message=None):
 
@@ -73,6 +103,11 @@ _tools_dirs = [
 final_ncbi_foldername = "ncbi_blast"
 
 def get_discriminator_string_by_platform():
+    """
+    This is specifically for the NCBI tools since
+    they have the OS a particular package was intended
+    for in the filename
+    """
 
     if "linux" in sys.platform:
         return "linux"
@@ -92,7 +127,7 @@ def verify_download_md5(downloaded_asset):
     downloaded file has another file with an extra
     md5 extension that contains the digest information.
     """
-
+    log.info("Verifying: " + downloaded_asset)
     md5_file = downloaded_asset+".md5"
     
     if not os.path.exists(md5_file) or \
@@ -100,8 +135,7 @@ def verify_download_md5(downloaded_asset):
         return False
 
     with open(md5_file, "r") as f:
-        digest = f.read()
-        print(digest)
+        digest = f.read().strip()
         digest = digest.split()[0]
 
     md5_digest = hashlib.md5()
@@ -120,28 +154,48 @@ def untar_to_directory(source_tar, tarfile_final_path):
     to tar on the command-line
     """
 
-    if not os.path.exists(tarfile_final_path):
+    if not os.path.exists(source_tar):
         raise OSError("{} does not exist!".format(tarfile_final_path))
 
     with tarfile.open(source_tar, mode="r:gz") as tfile:
         
         for member in tfile.getmembers():
+
+            # Drop the root directory. The package looks like
+            # ncbi-blast-version/
+            #   - File
+            #   - File
+            #   - Dir
+            #
+            # I want the files in my target directory and not also
+            # the original root directory. It's easier to find
+            # the bin directory if I know exactly how it resolves.
+            member.name = '/'.join(member.name.split('/')[1:])
             tfile.extract(member, path=tarfile_final_path)
 
 def fetch_ncbi_tools(tarfile_final_path, retry_count=0):
-
+    """
+    Fetches the ncbi tools by logging into their FTP site
+    anonymously, changing directories to the latest tools path,
+    determining the correct package based on OS and downloading
+    both the tar and the md5. This is all assuming you're using
+    a x64 OS (sorry if that's not the case)
+    """
     if retry_count >= 3:
         raise RuntimeError("Tried to download the NCBI tools three "
             "times. Now I'm giving up sorry!")
 
     os.makedirs(os.path.dirname(tarfile_final_path), exist_ok=True)
+    tempdir_obj = tempfile.TemporaryDirectory()
+    tempdir = tempdir_obj.name
 
+    log.info("Beginning to download NCBI tools from: " + NCBI_ENDPOINT)
     with ftplib.FTP(NCBI_ENDPOINT) as ftp_conn:
 
         ftp_conn.login()
         ftp_conn.cwd(BLAST_DIR)
 
-        # The latests tools are available as tars which is nice since
+        # The latest tools are available as tars which is nice since
         # I won't be able to invoke your system installer from here.
         available_versions = [file for file in ftp_conn.nlst() if \
                                 file.endswith("tar.gz") and "src" not in file]
@@ -151,44 +205,48 @@ def fetch_ncbi_tools(tarfile_final_path, retry_count=0):
         package = next(file for file in available_versions \
                         if search_string in file)
 
-        tempdir = tempfile.TemporaryDirectory()
-        tar_file_path = os.path.join(tempdir.name, package)
+        tar_file_path = os.path.join(tempdir, package)
         
         mapping = {
-                    package: os.path.join(tempdir.name, package),
-                    package+".md5": os.path.join(tempdir.name, package+'.md5')
+                    package: os.path.join(tempdir, package),
+                    package+".md5": os.path.join(tempdir, package+'.md5')
                 }
 
         for file, path in mapping.items():
 
-            handle = open(path, "wb")
-            downloader = functools.partial(download_and_write, file_handle=handle)
-            
-            print("Beginning to download: {}"
-                .format(file))
+            with open(path, "wb") as handle:
+                downloader = functools.partial(download_and_write, file_handle=handle)
+                
+                log.info("Beginning to download: {}"
+                    .format(file))
 
-            ftp_conn.retrbinary("RETR "+file, downloader)
+                ftp_conn.retrbinary("RETR "+file, downloader)
+
 
     if not verify_download_md5(mapping[package]):
-        print("Download failed md5 verification, will try a total of "
+        log.error("Download failed md5 verification, will try a total of "
             " 3 times before quitting.")
 
         time.sleep(2)
-        fetch_ncbi_tools(tarfile_final_path, retry_count=retry_count+1)
+        return fetch_ncbi_tools(tarfile_final_path, retry_count=retry_count+1)
 
     untar_to_directory(tar_file_path, tarfile_final_path)
+    tempdir_obj.cleanup()
 
 def retrieve_necessary_deps():
+    """
+    Retrieves the appropriate tools from the remote endpoints
+    if they are needed. As of this writing, it is not the case
+    that we need anything more than the NCBI blast tools.
+    If that were the case, I would refactor this method
+    to rather choose a tools directory, iterate over a
+    hashmap of tool name to function objects passing in
+    the tools directory to the function and letting it
+    decide how it wants to decide whether a tool has been
+    already been downloaded.
+    """
 
-    if not all(shutil.which(tool) for tool in required_tools):
-        message = "It looks like I need to download some tools to get" \
-            " things working, do I have permission to do that? (Y/N): "
-
-        if not prompt_continue(message=message):
-            print("Maybe next time, see ya!")
-            sys.exit(0)
-
-    else:
+    if all(shutil.which(tool) for tool in required_tools):
         return
 
     chosen_tools_dir = ''
@@ -206,6 +264,7 @@ def retrieve_necessary_deps():
             bin_path = os.path.join(ncbi_path, 'bin')
 
             if os.path.exists(bin_path):
+                log.info("Looks like you have some NCBI tools already!")
                 return
 
             # It's quite possible that the last install was not valid,
@@ -214,7 +273,7 @@ def retrieve_necessary_deps():
                 shutil.rmtree(ncbi_path)
             
             except OSError as e:
-                print("Failed to remove folder: {}".format(ncbi_path))
+                log.error("Failed to remove folder: {}".format(ncbi_path))
                 traceback.print_exc()
                 continue
             # Since we've elected to use this one before, let's go ahead
@@ -243,7 +302,8 @@ class PostDevelopCommand(develop):
         Calls the parent class' implementation of this function
         before continuing on to install any non-pip dependencies.
         """
-        super().run()
+        develop.run(self)
+        retrieve_necessary_deps()
 
 class PostInstallCommand(install):
     """
@@ -256,36 +316,37 @@ class PostInstallCommand(install):
         Calls the parent class' implementation of this function
         before continuing on to install any non-pip dependencies.
         """
-        super().run()
+        install.run(self)
+        retrieve_necessary_deps()
 
-# __version__ = '0.0.1-dev'
-# __author__ = 'Milan Patel'
-# __title__ = 'genomics_tools'
+__version__ = '0.0.1-dev'
+__author__ = 'Milan Patel'
+__title__ = 'genomics_tools'
 
-# packages = [
-#             'genomics_tools',
-# ]
+packages = [
+            'genomics_tools',
+]
 
-# requires = [
-#     'requests>=2.21.0',
-#     'six>=1.12.0',
-#     'tqdm>=4.29.0',
-#     'urllib3>=1.24.1',
-# ]
+requires = [
+    'requests>=2.21.0',
+    'six>=1.12.0',
+    'tqdm>=4.29.0',
+]
 
-# setup(
-#         name=__title__,
-#         version=__version__,
-#         packages=packages,
-#         author=__author__,
-#         python_requires=">=3.5",
-#         install_requires=requires,
-#         entry_points={
-#             'console_scripts': [
-#                 'genomics_tools=genomics_tools.__main__:_main'
-#                 ]
-#             }
-#         )
-
-if __name__ == '__main__':
-    retrieve_necessary_deps()
+setup(
+        name=__title__,
+        version=__version__,
+        packages=packages,
+        author=__author__,
+        python_requires=">=3.5",
+        install_requires=requires,
+        cmdclass={
+            "develop" : PostDevelopCommand,
+            "install" : PostInstallCommand
+        },
+        entry_points={
+            'console_scripts': [
+                'genomics_tools=genomics_tools.__main__:_main'
+                ]
+            }
+        )
