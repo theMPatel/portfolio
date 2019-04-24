@@ -58,7 +58,7 @@ def add_cmdline_kwargs(executable_name, cmd_args, kwargs):
                         ' got {} instead'.format(type(kwargs))
                         )
 
-    for arg, value in kwargs.iteritems():
+    for arg, value in kwargs.items():
         if not isinstance(arg, basestring) or not \
             arg.startswith('-'):
 

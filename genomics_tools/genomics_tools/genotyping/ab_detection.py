@@ -30,7 +30,7 @@ from tools.tools import (
 )
 
 import os
-from itertools import combinations, product, izip
+from itertools import combinations, product
 from tools.fancy_tools import Disjointset
 from collections import defaultdict, namedtuple
 
@@ -88,7 +88,7 @@ def presence_detector(sequence_database, query_path, cached_query, percent_ident
 
     # Determine the size of the contigs that we are working with
     contig_sizes = {contig:len(sequence) for \
-        contig, sequence in cached_query.iteritems()}
+        contig, sequence in cached_query.items()}
 
     log_message('Determining genotype coverages...')
     
@@ -207,7 +207,7 @@ def find_mutations(sequence_database, results, min_relative_coverage):
     # Store the found resistance:
     mutation_results = defaultdict(list)
 
-    for reference, hits in regions.iteritems():
+    for reference, hits in regions.items():
 
         targets = sequence_database.targets[reference]
         
@@ -545,7 +545,7 @@ def eliminate_overlap(regions, min_merge_overlap):
 
     # For each of the best parents, see if the children are better
     to_remove = []
-    for parent, children in best_hits.iteritems():
+    for parent, children in best_hits.items():
 
         # Parent and children will be part of
         # childrens list
@@ -760,7 +760,7 @@ class Genotype(object):
         # Dictionary for all of the genotypes
         genotypes = {}
 
-        for reference, hits in hit_regions.iteritems():
+        for reference, hits in hit_regions.items():
 
             # Get the length of the reference
             reference_len = len(sequence_database.get_refseq(reference))

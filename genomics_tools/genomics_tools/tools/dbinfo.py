@@ -98,7 +98,7 @@ class DbInfo(object):
             # Load the sequences themselves from the files
             sequences = parse_fasta(file_path)
 
-            for seq_id, sequence in sequences.iteritems():
+            for seq_id, sequence in sequences.items():
                 # Create a named tuple that contains the 
                 # header split out into its different
                 # attributes plus the sequence
@@ -170,7 +170,7 @@ class DbInfo(object):
         # Open
         with open(filepath, 'w') as f:
 
-            for seq_id, seq_info in self._sequences.iteritems():
+            for seq_id, seq_info in self._sequences.items():
                 
                 # The fasta file should look like:
                 # 
@@ -210,7 +210,7 @@ class DbInfo(object):
             'extra': []
         }
 
-        for result, geno_regions in results.iteritems():
+        for result, geno_regions in results.items():
 
             # The sequence information for this result
             sequence_info = sequences[result]

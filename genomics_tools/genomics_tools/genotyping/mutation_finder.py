@@ -136,7 +136,7 @@ class DbInfo(DbInfo):
             # Load the sequences themselves from the files
             sequences = parse_fasta(file_path)
 
-            for seq_id, sequence in sequences.iteritems():
+            for seq_id, sequence in sequences.items():
                 # Create a named tuple that contains the 
                 # header split out into its different
                 # attributes plus the sequence
@@ -252,7 +252,7 @@ def results_parser(dbinfo, interpretations):
     }
 
     log_message('Determining optimal gene coverages...')
-    for gene, mutation in interpretations.iteritems():
+    for gene, mutation in interpretations.items():
 
         for mutation_info in mutation:
 
@@ -285,7 +285,7 @@ def results_parser(dbinfo, interpretations):
                 notes_out['results'][r] = True
 
     
-    for gene, mutation_targets in dbinfo.targets.iteritems():
+    for gene, mutation_targets in dbinfo.targets.items():
 
         for mutation_target in mutation_targets:
 

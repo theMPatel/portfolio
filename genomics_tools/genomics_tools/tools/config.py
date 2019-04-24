@@ -82,7 +82,7 @@ class Settings(object):
 
         self._args = args
 
-        for setting_name, setting_value in self._args.iteritems():
+        for setting_name, setting_value in self._args.items():
 
             if isinstance(setting_value, dict):
 
@@ -95,7 +95,7 @@ class Settings(object):
     def update(self, args):
         self._args.update(args)
 
-        for setting_name, setting_value in self._args.iteritems():
+        for setting_name, setting_value in self._args.items():
 
             if isinstance(setting_value, dict):
 
@@ -108,8 +108,8 @@ class Settings(object):
     def keys(self):
         return self._args.iterkeys()
 
-    def iteritems(self):
-        return self._args.iteritems()
+    def items(self):
+        return self._args.items()
 
     def __setitem__(self, setting_name, setting_value):
         self._args[setting_name] = setting_value

@@ -13,11 +13,13 @@
 #
 ###################################################################
 
-import json
-import argparse 
+import argparse
+from collections import namedtuple 
 import importlib
+import json
 import os
 import sys
+import tempfile
 import traceback
 
 this_file = os.path.realpath(__file__)
@@ -39,8 +41,14 @@ from tools.environment import (
 )
 
 from genotyping import mutation_finder
-from tools.custom_parser import CustomParser
-from tools.config import Settings
+
+Settings = namedtuple("Settings", [
+    'query',
+    'version',
+    'database',
+    'percent_identity',
+    'min_relative_coverage'
+])
 
 
 # When you run the python interpreter without the -O flag
@@ -79,21 +87,50 @@ def parse_cmdline():
     parser.add_argument('--toolsdir',
         default='', help='Tools directory', type=str)
 
+    parser.add_argument("--run", default=False, action="store_true")
+
     # Get the known arguments of the command line, by default
     # prefer the arguments defined in the settings file
     # over any actual cmd-line arguments
     try:
         args, remaining = parser.parse_known_args(args=['@settings.txt'])
 
-    except Exception as e:
+    except:
         # In the case that we don't get a settings file, we can see
         # if the arguments we need are defined on the command line.
         args, remaining = parser.parse_known_args()
 
+    # I will instruct you to use --run to do a test run of the software!
+    if args.run:
+
+        args.tempdir = tempfile.mkdtemp()
+        args.resultsdir = os.path.join(args.tempdir, "results")
+        os.makedirs(args.resultsdir)
+        print(args.tempdir)
+
     #return the arguments object
     return args, remaining
 
-def main_throw_args(args, remaining):
+def find_all_installed_tools():
+    """
+    This function will help us find any of the tools that we
+    installed through the setup.py script.
+    """
+    _tools_dirs = [
+        os.path.expanduser("~/.tools"),
+        os.path.expanduser("~/.bin"),
+        os.path.expanduser("~/.tmp")
+        ]
+
+    # We can use shutil.which to get the correct binary we want
+    # if we ensure that the path is correct. Unfortunately, I
+    # didn't feel safe manipulating your path (esp if you're on
+    # windows) so am resorting to this.
+    for directory in _tools_dirs:
+        for root, dirs, files in os.walk(directory):
+            sys.path.append(dirs)
+
+def main_throw_args(args, remaining, settings):
     # Actually calls the genotyping algorithm
     
     env = Environment()
@@ -113,7 +150,7 @@ def main_throw_args(args, remaining):
     # was aware it could run and which one in particular would come
     # in as a cmdline argument. We would import that class dynamically
     # and run it's main method.
-    mutation_finder.main(args, remaining, env, module_settings)
+    mutation_finder.main(settings, env)
         
     # And we are done!
     log_progress(100)
@@ -140,11 +177,21 @@ def main_throw():
     if os.path.exists(genotyper_settings_path):
         with open(genotyper_settings_path, 'r') as f:
             genotyper_settings = json.load(f)
-    
-    # Run the main program with arguments
-    main_throw_args(args, remaining, mutation_finder_settings)
 
-def main():
+    settings = Settings(os.path.expanduser("~/Downloads/test_genome.fna"),
+                        "1.0.0",
+                        os.path.expanduser("~/Documents/github/pointfinder_db/escherichia_coli"),
+                        0.9,
+                        0.6)
+    
+    # Update the path to add all the directories that might have
+    # our tools.
+    find_all_installed_tools()
+
+    # Run the main program with arguments
+    main_throw_args(args, remaining, settings)
+
+def _main():
 
     return_code = 0
 
@@ -156,14 +203,5 @@ def main():
         return_code = 1
 
     finally:
-        return return_code
-
-if __name__=='__main__':
-    
-    # Get the return value of the algorithm
-    retval = main()
-
-    # Clear our logging contexts
-    graceful_shutdown_logging()
-
-    sys.exit(retval)
+        graceful_shutdown_logging()
+        sys.exit(return_code)

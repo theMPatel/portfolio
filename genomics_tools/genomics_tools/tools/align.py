@@ -11,7 +11,7 @@
 import os
 import subprocess as sp
 from collections import namedtuple
-from environment import (
+from .environment import (
     log_message,
     log_error,
     check_dir,
@@ -26,7 +26,6 @@ BLASTSettings = namedtuple('BLASTSettings', [
 
 _platform = os.name
 
-# TODO 
 def create_blastdb(fastaflname, dbpath, env):
 
     toolspath = env.toolsdir
@@ -41,15 +40,16 @@ def create_blastdb(fastaflname, dbpath, env):
     # This is where the tools should be
     # if that is not the case, either fix it in the filesystem
     # or fix the path below, whichever is easier
-    makeblastdb = os.path.join(toolspath, 'all_tools/makeblastdb')
+    makeblastdb_name = 'makeblastdb'
 
     if _platform == 'nt':
-        makeblastdb += '.exe'
+        makeblastdb_name += '.exe'
+
+    makeblastdb = shutil.which(makeblastdb_name)
 
     # Check to make sure the tool exists
-    if not os.path.exists(makeblastdb):
-        raise RuntimeError('Missing ncbi->makeblastdb. Path given:'
-            ' {}'.format(toolspath))
+    if makeblastdb is None:
+        raise RuntimeError('Missing ncbi->makeblastdb')
 
     # Make sure that the export of the reference sequences exists
     if not os.path.exists(fastaflname):

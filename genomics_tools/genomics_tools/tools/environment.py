@@ -142,7 +142,7 @@ def get_message_depth(base_depth, extra=0):
 
 def log_algo_params(params, extra=1):
     if isinstance(params, collections.Mapping):
-        for key, value in params.iteritems():
+        for key, value in params.items():
 
             if isinstance(value, list):
                 log_message('-> {}'.format(key), extra=extra)
@@ -200,7 +200,7 @@ def log_algo_version(algo_version=None, settings=None,
             'database' : env.get_version_path(db_path) 
         }
 
-        for key, path in versions.iteritems():
+        for key, path in versions.items():
 
             if not os.path.isfile(path):
                 continue
@@ -224,7 +224,7 @@ def log_algo_version(algo_version=None, settings=None,
                     )
         return
 
-    for key, value in version_info.iteritems():
+    for key, value in version_info.items():
         out_str = 'Using {} version: {}'.format(key, value)
         logging.info(out_str, depth)
 
@@ -593,7 +593,7 @@ def initialize_logging(log_dir):
     root = logging.getLogger()
     root.setLevel(logging.NOTSET)
 
-    for name, parameters in base_logfiles.iteritems():
+    for name, parameters in base_logfiles.items():
 
         file_path = os.path.join(
             log_dir,

@@ -325,6 +325,8 @@ __title__ = 'genomics_tools'
 
 packages = [
             'genomics_tools',
+            'genomics_tools.tools',
+            'genomics_tools.genotyping'
 ]
 
 requires = [

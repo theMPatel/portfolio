@@ -20,9 +20,6 @@ import sys
 
 from collections import OrderedDict, namedtuple
 from itertools import combinations
-from string import maketrans
-
-from Bio import SeqIO
 
 from .environment import (
     full_path,
@@ -36,7 +33,7 @@ _FASTAEXTS = ['.fna', '.fasta', '.fsa']
 _GENBANKEXTS = ['.gb', '.gbk']
 _FWD = 'ATGCRYSWKMBDHVN'
 _REV = 'TACGYRSWMKVHDBN'
-_COMPLEMENT = maketrans(_FWD, _REV)
+_COMPLEMENT = str.maketrans(_FWD, _REV)
 _GZIP_START = b'1f8b'
 
 # Get the codons for any particular amino acid
@@ -67,7 +64,7 @@ _AA_BACK_TRANSLATE = {
 _AA_TRANSLATE = {}
 
 # Create the dictionary on the fly
-for amino, codons in _AA_BACK_TRANSLATE.iteritems():
+for amino, codons in _AA_BACK_TRANSLATE.items():
     for codon in codons:
         _AA_TRANSLATE[codon] = amino
 
@@ -95,7 +92,7 @@ _SET_TO_NON_ACTG = {}
 
 # Convert values to set for easy membership
 # checking
-for nuc, pairs in _NUC_SIBLINGS.iteritems():
+for nuc, pairs in _NUC_SIBLINGS.items():
     _NUC_SIBLINGS[nuc] = frozenset(pairs)
     _SET_TO_NON_ACTG.__setitem__(_NUC_SIBLINGS.get(nuc), nuc)
 
@@ -146,7 +143,7 @@ def add_cmdline_kwargs(executable_name, cmd_args, kwargs):
                         ' got {} instead'.format(type(kwargs))
                         )
 
-    for arg, value in kwargs.iteritems():
+    for arg, value in kwargs.items():
         if not isinstance(arg, basestring) or not \
             arg.startswith('-'):
 
