@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+
 ###################################################################
 #
 # Here, I'll provide some of the logic needed to make sure that
@@ -14,6 +15,19 @@
 #
 ###################################################################
 
+from distutils import log
+import ftplib
+import functools
+import hashlib
+import io
+import os
+import shutil
+import subprocess
+import sys
+import tarfile
+import tempfile
+import traceback
+
 def install_package(package):
     """
     Infrastructure to install packages at runtime in case they
@@ -26,7 +40,16 @@ def install_package(package):
     if not package:
         raise ValueError('Recieved empty string for package installation')
 
-    import pip
+    # This will fail if you are on windows and do not have pip installed
+    # which can happen if you skirted your sys admin and installed
+    # python yourself from a portable python version
+    try:
+        import pip
+    except ImportError as e:
+        message = "I need pip to install setuptools, please " \
+            "install pip for {} before continuing".format(sys.executable)
+
+        raise ImportError(message) from e
 
     if hasattr(pip, 'main'):
         pip.main(['install', package])
@@ -44,19 +67,6 @@ finally:
     from setuptools import setup
     from setuptools.command.develop import develop
     from setuptools.command.install import install
-
-from distutils import log
-import ftplib
-import functools
-import hashlib
-import io
-import os
-import shutil
-import sys
-import tarfile
-import tempfile
-import traceback
-
 
 def prompt_continue(message=None):
 
@@ -85,11 +95,6 @@ def download_and_write(data, file_handle=None):
         raise RuntimeError("No file handle to write to!")
 
     file_handle.write(data)
-
-required_tools = [
-    "makeblastdb",
-    "blastn"
-]
 
 NCBI_ENDPOINT = "ftp.ncbi.nlm.nih.gov"
 BLAST_DIR = "blast/executables/blast+/LATEST/"
@@ -120,6 +125,25 @@ def get_discriminator_string_by_platform():
 
     raise ValueError("I don't know what platform this is: {}"
         .format(sys.platform))
+
+def populate_syspath():
+    """
+    This function will help us find any of the tools that we
+    installed through the setup.py script.
+    """
+    _tools_dirs = [
+        os.path.expanduser("~/.tools"),
+        os.path.expanduser("~/.bin"),
+        os.path.expanduser("~/.tmp")
+        ]
+
+    # We can use shutil.which to get the correct binary we want
+    # if we ensure that the path is correct. Unfortunately, I
+    # didn't feel safe manipulating your path (esp if you're on
+    # windows) so am resorting to this.
+    for directory in _tools_dirs:
+        for root, dirs, files in os.walk(directory):
+            sys.path.append(root)
 
 def verify_download_md5(downloaded_asset):
     """
@@ -181,6 +205,21 @@ def fetch_ncbi_tools(tarfile_final_path, retry_count=0):
     both the tar and the md5. This is all assuming you're using
     a x64 OS (sorry if that's not the case)
     """
+    actual_tools_needed = ['makeblastdb', 'blastn']
+    
+    if os.name == 'nt':
+        for i in range(len(actual_tools_needed)):
+            actual_tools_needed[i] += '.exe'
+    
+    if all(shutil.which(tool) for tool in actual_tools_needed):
+        log.info("Looks like we have the blast tools we need " \
+            "already!")
+
+        return
+
+    log.info("Needed blast tools not found, proceeding with fetch")
+    sys.exit(0)
+
     if retry_count >= 3:
         raise RuntimeError("Tried to download the NCBI tools three "
             "times. Now I'm giving up sorry!")
@@ -215,13 +254,13 @@ def fetch_ncbi_tools(tarfile_final_path, retry_count=0):
         for file, path in mapping.items():
 
             with open(path, "wb") as handle:
-                downloader = functools.partial(download_and_write, file_handle=handle)
+                downloader = functools.partial(download_and_write,
+                    file_handle=handle)
                 
                 log.info("Beginning to download: {}"
                     .format(file))
 
                 ftp_conn.retrbinary("RETR "+file, downloader)
-
 
     if not verify_download_md5(mapping[package]):
         log.error("Download failed md5 verification, will try a total of "
@@ -233,63 +272,126 @@ def fetch_ncbi_tools(tarfile_final_path, retry_count=0):
     untar_to_directory(tar_file_path, tarfile_final_path)
     tempdir_obj.cleanup()
 
-def retrieve_necessary_deps():
+def git_checkout(branch):
     """
-    Retrieves the appropriate tools from the remote endpoints
-    if they are needed. As of this writing, it is not the case
-    that we need anything more than the NCBI blast tools.
-    If that were the case, I would refactor this method
-    to rather choose a tools directory, iterate over a
-    hashmap of tool name to function objects passing in
-    the tools directory to the function and letting it
-    decide how it wants to decide whether a tool has been
-    already been downloaded.
+    Checks out a particular branch in a git repo. It assumes
+    that the current working directory of this script
+    is in a git repo.
+
+    :param branch: Assumes that this branch exists in your git repo
+        either locally or remotely.
+    :raises `subprocess.CalledProcessError`: When the subprocess fails
+    :raises `ValueError` If branch is empty or not a string
     """
 
-    if all(shutil.which(tool) for tool in required_tools):
+    if not branch or not isinstance(branch, str):
+        raise ValueError("Invalid branch argument")
+
+    args = ["git", "checkout", branch]
+    subprocess.check_call(args)
+
+def git_pull(branch):
+    """
+    Assumes that the current working directory of the script is
+    in the git repo you want. Also assumes that we don't need
+    to authenticate to run this.
+
+    :param branch: The branch that you want checked out to latest
+    :raises `subprocess.CalledProcessError`: When the subprocess fails
+    :raises `ValueError` If branch is empty or not a string
+    """
+    if not branch or not isinstance(branch, str):
+        raise ValueError("Invalid branch argument")
+
+    git_checkout(branch)
+    args = ["git", "pull"]
+    subprocess.check_call(args)
+
+def fetch_pointfinder_db(tools_dir):
+    """
+    Will fetch the point finder database that we use to BLAST
+    a query genome against
+    """
+
+    # You don't have git installed, what?!?!
+    if not shutil.which("git"):
+        raise RuntimeError("Please install git somewhere on your path " \
+            "before continuing!")
+
+    database_endpoint = "https://bitbucket.org/genomicepidemiology/" \
+        "pointfinder_db.git"
+
+    args = ["git", "clone", database, tools_dir]
+
+    directory_name = "pointfinder_db"
+    directory_path = os.path.join(tools_dir, directory_name)
+    git_directory = os.path.join(directory_path, ".git")
+
+    if os.path.exists(directory_path) and os.path.exists(git_directory):
+        curr_dir = os.getcwd()
+        os.chdir(directory_path)
+        
+        git_pull(directory_path)
+        os.chdir(curr_dir)
+
         return
+
+    # Straight forward, this is all we need to do
+    subprocess.check_call(args)
+
+_valid_directory_names = ['ncbi_blast', 'pointfinder_db']
+def retrieve_necessary_deps():
+    """
+    Retrieves the necessary tools from the remote endpoints and
+    selects an ideal place on the filesystem to place them.
+
+    :raises ValueError: If I can't figure out a good place to put
+        these tools
+    """
+    populate_syspath()
 
     chosen_tools_dir = ''
     for path in _tools_dirs:
-
-        ncbi_path = os.path.join(path, final_ncbi_foldername)
+        log.info("Checking: {}".format(path))
 
         if not os.path.exists(path):
-            os.makedirs(path, exist_ok=True)
-            chosen_tools_dir = ncbi_path
+            continue
+
+        # I'm going to check to see if you already have any of
+        # the tools that I need or a portion of them
+        paths = list(
+            map(
+                lambda tail: os.path.join(path, tail), 
+                _valid_directory_names
+                )
+            )
+        log.info(str(paths))
+        if any(os.path.exists(p) for p in paths):
+            chosen_tools_dir = path
             break
 
-        # Either you've run this before or wow you use NCBI!
-        if os.path.exists(ncbi_path):
-            bin_path = os.path.join(ncbi_path, 'bin')
+    else:
+        # I couldn't find anything, so I'm going to pick
+        # whichever directory either doesn't exist and if they
+        # all exist whichever has the least amount of things
+        # in it
+        counts = []
+        for path in _tools_dirs:
+            if not os.path.exists(path):
+                chosen_tools_dir = path
+                break
 
-            if os.path.exists(bin_path):
-                log.info("Looks like you have some NCBI tools already!")
-                return
+            counts.append((len(os.listdir(path), path)))
 
-            # It's quite possible that the last install was not valid,
-            # This is a clean-up step
-            try:
-                shutil.rmtree(ncbi_path)
-            
-            except OSError as e:
-                log.error("Failed to remove folder: {}".format(ncbi_path))
-                traceback.print_exc()
-                continue
-            # Since we've elected to use this one before, let's go ahead
-            # and pick it again.
-            chosen_tools_dir = ncbi_path
-            break
-
-        chosen_tools_dir = ncbi_path
-        break
+        else:
+            counts.sort(reverse=True)
+            chosen_tools_dir = counts.pop()[-1]
 
     if not chosen_tools_dir:
-        raise RuntimeError("I have no idea what would be a good"
-            " place to put the ncbi tools since all the good ones"
-            " seem to be taken:\n {}".format("\n".join(_tools_dirs)))
+        raise ValueError("Unable to select an ideal spot for my extra tools!")
 
     fetch_ncbi_tools(chosen_tools_dir)
+    #fetch_pointfinder_db(chosen_tools_dir)
 
 class PostDevelopCommand(develop):
     """
