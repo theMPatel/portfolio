@@ -100,9 +100,9 @@ NCBI_ENDPOINT = "ftp.ncbi.nlm.nih.gov"
 BLAST_DIR = "blast/executables/blast+/LATEST/"
 
 _tools_dirs = [
-    os.path.expanduser("~/.tools"),
-    os.path.expanduser("~/.bin"),
-    os.path.expanduser("~/.tmp")
+    os.path.normpath(os.path.expanduser("~/.tools")),
+    os.path.normpath(os.path.expanduser("~/.bin")),
+    os.path.normpath(os.path.expanduser("~/.tmp"))
 ]
 
 final_ncbi_foldername = "ncbi_blast"
@@ -111,7 +111,7 @@ def get_discriminator_string_by_platform():
     """
     This is specifically for the NCBI tools since
     they have the OS a particular package was intended
-    for in the filename
+    for in the filename.
     """
 
     if "linux" in sys.platform:
@@ -131,19 +131,17 @@ def populate_syspath():
     This function will help us find any of the tools that we
     installed through the setup.py script.
     """
-    _tools_dirs = [
-        os.path.expanduser("~/.tools"),
-        os.path.expanduser("~/.bin"),
-        os.path.expanduser("~/.tmp")
-        ]
 
+    path_parts = []
     # We can use shutil.which to get the correct binary we want
     # if we ensure that the path is correct. Unfortunately, I
     # didn't feel safe manipulating your path (esp if you're on
     # windows) so am resorting to this.
     for directory in _tools_dirs:
         for root, dirs, files in os.walk(directory):
-            sys.path.append(root)
+            path_parts.append(root)
+
+    os.environ["PATH"] += os.pathsep + os.pathsep.join(path_parts)
 
 def verify_download_md5(downloaded_asset):
     """
@@ -218,7 +216,6 @@ def fetch_ncbi_tools(tarfile_final_path, retry_count=0):
         return
 
     log.info("Needed blast tools not found, proceeding with fetch")
-    sys.exit(0)
 
     if retry_count >= 3:
         raise RuntimeError("Tried to download the NCBI tools three "
@@ -311,27 +308,30 @@ def fetch_pointfinder_db(tools_dir):
     """
     Will fetch the point finder database that we use to BLAST
     a query genome against
+
+    :param tools_dir: The tools directory where you want this installed
     """
 
-    # You don't have git installed, what?!?!
     if not shutil.which("git"):
+    # You don't have git installed, what?!?!
         raise RuntimeError("Please install git somewhere on your path " \
             "before continuing!")
 
-    database_endpoint = "https://bitbucket.org/genomicepidemiology/" \
+    database = "https://bitbucket.org/genomicepidemiology/" \
         "pointfinder_db.git"
-
-    args = ["git", "clone", database, tools_dir]
 
     directory_name = "pointfinder_db"
     directory_path = os.path.join(tools_dir, directory_name)
     git_directory = os.path.join(directory_path, ".git")
+
+    args = ["git", "clone", database, directory_path]
 
     if os.path.exists(directory_path) and os.path.exists(git_directory):
         curr_dir = os.getcwd()
         os.chdir(directory_path)
         
         git_pull(directory_path)
+        
         os.chdir(curr_dir)
 
         return
@@ -391,7 +391,7 @@ def retrieve_necessary_deps():
         raise ValueError("Unable to select an ideal spot for my extra tools!")
 
     fetch_ncbi_tools(chosen_tools_dir)
-    #fetch_pointfinder_db(chosen_tools_dir)
+    fetch_pointfinder_db(chosen_tools_dir)
 
 class PostDevelopCommand(develop):
     """

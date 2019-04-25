@@ -111,24 +111,28 @@ def parse_cmdline():
     #return the arguments object
     return args, remaining
 
-def find_all_installed_tools():
+def populate_syspath():
     """
     This function will help us find any of the tools that we
-    installed through the setup.py script.
+    installed through the setup.py script. It exists because
+    I don't want to permanently modify your own $PATH variable
     """
     _tools_dirs = [
-        os.path.expanduser("~/.tools"),
-        os.path.expanduser("~/.bin"),
-        os.path.expanduser("~/.tmp")
+        os.path.normpath(os.path.expanduser("~/.tools")),
+        os.path.normpath(os.path.expanduser("~/.bin")),
+        os.path.normpath(os.path.expanduser("~/.tmp"))
         ]
 
+    path_parts = []
     # We can use shutil.which to get the correct binary we want
     # if we ensure that the path is correct. Unfortunately, I
     # didn't feel safe manipulating your path (esp if you're on
     # windows) so am resorting to this.
     for directory in _tools_dirs:
         for root, dirs, files in os.walk(directory):
-            sys.path.append(dirs)
+            path_parts.append(root)
+
+    os.environ["PATH"] += os.pathsep + os.pathsep.join(path_parts)
 
 def main_throw_args(args, remaining, settings):
     # Actually calls the genotyping algorithm
@@ -186,7 +190,7 @@ def main_throw():
     
     # Update the path to add all the directories that might have
     # our tools.
-    find_all_installed_tools()
+    populate_syspath()
 
     # Run the main program with arguments
     main_throw_args(args, remaining, settings)
