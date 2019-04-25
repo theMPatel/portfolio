@@ -37,7 +37,9 @@ from tools.environment import (
     log_progress,
     log_error,
     log_exception,
-    log_algo_params
+    log_algo_params,
+    get_stack_len,
+    set_base_depth
 )
 
 from genotyping import mutation_finder
@@ -66,11 +68,7 @@ class MyArgumentParser(argparse.ArgumentParser):
 # Parse the commandline arguments
 def parse_cmdline():
 
-    # create the parser, the below will look for any file
-    # that starts with an '@' symbol. It makes sense to do this
-    # when your command line arguments are so large that it
-    # becomes more useful to manage them inside of a file.
-    parser = MyArgumentParser(fromfile_prefix_chars='@')
+    parser = MyArgumentParser()
 
     parser.add_argument('--nThreads',
         help='Number of threads', type=int, default=2)
@@ -84,29 +82,17 @@ def parse_cmdline():
     parser.add_argument('--databasedir',
         help='Shared directory', type=str)
 
-    parser.add_argument('--toolsdir',
-        default='', help='Tools directory', type=str)
-
     parser.add_argument("--run", default=False, action="store_true")
 
-    # Get the known arguments of the command line, by default
-    # prefer the arguments defined in the settings file
-    # over any actual cmd-line arguments
-    try:
-        args, remaining = parser.parse_known_args(args=['@settings.txt'])
-
-    except:
-        # In the case that we don't get a settings file, we can see
-        # if the arguments we need are defined on the command line.
-        args, remaining = parser.parse_known_args()
+    args, remaining = parser.parse_known_args()
 
     # I will instruct you to use --run to do a test run of the software!
     if args.run:
 
-        args.tempdir = tempfile.mkdtemp()
-        args.resultsdir = os.path.join(args.tempdir, "results")
+        tempdir = tempfile.mkdtemp()
+        args.tempdir = os.path.join(tempdir, "tmp")
+        args.resultsdir = os.path.join(tempdir, "results")
         os.makedirs(args.resultsdir)
-        print(args.tempdir)
 
     #return the arguments object
     return args, remaining
@@ -144,9 +130,14 @@ def main_throw_args(args, remaining, settings):
     ResultWriter(env.resultsdir)
 
     log_message('Initializing..')
-    log_algo_params(vars(args))
+    log_message("Using temp directory: {}".format(env.tempdir))
+    log_message("Using results directory: {}".format(env.resultsdir))
     log_progress(0)
 
+    # Set's the base depth for logging so that we can get tabbed log
+    # files that mimic the execution flow of the program
+    set_base_depth(-(get_stack_len()))
+    
     # Actually, the below is a major refactor of the original
     # project layout. Before we were actually dynamically importing
     # the modules that a client wanted to run. This particular file

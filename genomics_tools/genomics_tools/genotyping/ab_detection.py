@@ -135,7 +135,7 @@ def mutation_detector(sequence_database, query_path, percent_identity,
     log_message('Exporting references...')
 
     # Make the path
-    reference_dir = os.path.join(env.localdir, 'blastdb')
+    reference_dir = os.path.join(env.tempdir, 'blastdb')
     
     # Check to make sure that its a real dir
     valid_dir(reference_dir)
@@ -148,7 +148,7 @@ def mutation_detector(sequence_database, query_path, percent_identity,
     log_message('Successfully exported reference database...')
 
     # Create the path to the blast database
-    blast_db_path = os.path.join(env.localdir, 'blastdb', 'db.fasta')
+    blast_db_path = os.path.join(env.tempdir, 'blastdb', 'db.fasta')
 
     log_message('Creating blast database...')
 
@@ -251,7 +251,6 @@ def find_mutations(sequence_database, results, min_relative_coverage):
             for target in targets:
 
                 codon_position = target.codon_position
-                num_mutations = target.num_mutations_needed
                 reference_codons = target.reference_codon
                 reference_aas = target.reference_aa
                 resistance_aas = target.resistance_aa
@@ -519,7 +518,7 @@ def eliminate_overlap(regions, min_merge_overlap):
     dset = Disjointset(len(regions))
 
     # Create the indices of the hits list
-    for i, j in combinations(xrange(len(regions)), 2):
+    for i, j in combinations(range(len(regions)), 2):
 
         hit1 = regions[i].locations
         hit2 = regions[j].locations
@@ -531,7 +530,7 @@ def eliminate_overlap(regions, min_merge_overlap):
     # Create a dictionary of the parents and the best hits:
     best_hits = defaultdict(set)
 
-    for i in xrange(len(regions)):
+    for i in range(len(regions)):
 
         # Get the parent of hit at this index
         parent = dset.get_parent(i)

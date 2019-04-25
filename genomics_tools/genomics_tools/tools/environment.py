@@ -182,48 +182,11 @@ def log_algo_version(algo_version=None, settings=None,
         env=None, extra=0):
 
     version_info = {
-        'algorithm' : '?',
-        'database' : '?'
+        'algorithm' : settings.version,
+        'database' : settings.version
     }
 
-    version_path = settings['version']
-
     depth = get_message_depth(base_depth, extra)
-
-    if isinstance(version_path, Settings):
-
-        algo_path = version_path.algorithm
-        db_path = version_path.database
-
-        versions = {
-            'algorithm' : env.get_version_path(algo_path),
-            'database' : env.get_version_path(db_path) 
-        }
-
-        for key, path in versions.items():
-
-            if not os.path.isfile(path):
-                continue
-
-            with open(path, 'r') as f:
-                info = f.read().strip()
-
-            version_info[key] = info
-    
-    elif isinstance(version_path, basestring):
-        algo_path = env.get_version_path(version_path)
-
-        if os.path.exists(algo_path):
-            with open(algo_path, 'r') as f:
-                version_info['algorithm'] = f.read().strip()
-
-    else:
-        logging.info('Could not get '
-                    'version information: {}'.format(str(version_path)),
-                    depth
-                    )
-        return
-
     for key, value in version_info.items():
         out_str = 'Using {} version: {}'.format(key, value)
         logging.info(out_str, depth)
@@ -268,13 +231,10 @@ _DB_VERSION_TOKEN = '[DBVERSIONDIR]'
 class Environment(object):
 
     def __init__(self):
-
-        # These are the settings we should be able to expect
-        self._attrs = ['_resultsdir', '_localdir',
-            '_shareddir', '_toolsdir', '_tempdir']
-
-        for attr in self._attrs:
-            setattr(self, attr, None)
+        self._resultsdir = None
+        self._tempdir = None
+        self._databasedir = None
+        self._threads = 2
 
     @deprecated
     def get_sharedpath(self, path):
@@ -355,19 +315,10 @@ class Environment(object):
 
         # Get the paths for the environment
         for setting in settings:
+            if not settings[setting]:
+                continue
 
-            if hasattr(self, '_'+setting):
-
-                # Get the path
-                path = sanitize_path(settings[setting])
-                
-                # Make the directories
-                valid_dir(path)
-
-                # Set the attributes
-                setattr(self, '_'+setting, path)
-
-            elif hasattr(self, setting):
+            if hasattr(self, setting):
 
                 # Get the path
                 path = sanitize_path(settings[setting])
@@ -376,15 +327,8 @@ class Environment(object):
                 valid_dir(path)
 
                 # Set the attribute
+                print(setting)
                 setattr(self, setting, path)
-
-
-        # Make sure that all of the settings that were provided
-        # are 'real'
-        for attr in self._attrs:
-            if getattr(self, attr) is None:
-                raise RuntimeError('Missing environment variable: {}'.format(
-                    attr))
 
         # Make sure we set ourselves up for logging
         self._logdir = os.path.join(self._resultsdir, 'logs')
@@ -412,26 +356,22 @@ class Environment(object):
             self._threads = 2
 
     @property
-    def localdir(self):
-        return self._localdir
-
-    @localdir.setter
-    def localdir(self, path):
-        valid_dir(path)
-        self._localdir = path
-
-    @property
-    def shareddir(self):
-        return self._shareddir
-
-    @shareddir.setter
-    def shareddir(self, path):
-        check_dir(path)
-        self._shareddir = path
+    def databasedir(self):
+        return self._databasedir
+    
+    @databasedir.setter
+    def databasedir(self, value):
+        check_dir(value)
+        self._databasedir = value
 
     @property
     def toolsdir(self):
         return self._toolsdir
+
+    @toolsdir.setter
+    def toolsdir(self, value):
+        check_dir(value)
+        self._toolsdir = value
 
     @property
     def logdir(self):
@@ -441,6 +381,11 @@ class Environment(object):
     def resultsdir(self):
         return self._resultsdir
 
+    @resultsdir.setter
+    def resultsdir(self, value):
+        valid_dir(value)
+        self._resultsdir = value
+
     @property
     def threads(self):
         return self._threads
@@ -448,6 +393,11 @@ class Environment(object):
     @property
     def tempdir(self):
         return self._tempdir
+
+    @tempdir.setter
+    def tempdir(self, value):
+        valid_dir(value)
+        self._tempdir = value
 
 class SingleWriteFileHandler(logging.FileHandler):
     """
@@ -582,6 +532,14 @@ base_logfiles = {
         'format'    : _base_formatter,
         'filter'    : None,
         'file_prep'  : None
+    },
+    'stdout' : {
+        'handler' : logging.StreamHandler,
+        'filename': None,
+        'level'   : logging.INFO,
+        'format'  : _base_formatter,
+        'filter'  : None,
+        'file_prep': None
     }
 }
 
@@ -595,10 +553,13 @@ def initialize_logging(log_dir):
 
     for name, parameters in base_logfiles.items():
 
-        file_path = os.path.join(
-            log_dir,
-            parameters['filename']
-        )
+        if parameters['filename'] is not None:
+            file_path = os.path.join(
+                log_dir,
+                parameters['filename']
+            )
+        else:
+            file_path = None
 
         if parameters['file_prep']:
             if callable(parameters['file_prep']):
@@ -613,7 +574,6 @@ def initialize_logging(log_dir):
 
         if parameters['filter']:
             handler.addFilter(parameters['filter'])
-
 
         root.addHandler(handler)
 

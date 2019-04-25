@@ -41,8 +41,7 @@ from collections import namedtuple, defaultdict
 
 MutationTarget = namedtuple('MutationTarget', [
     'gene_id', 
-    'gene_name', 
-    'num_mutations_needed',
+    'gene_name',
     'codon_position',
     'reference_codon', 
     'reference_aa', 
@@ -65,18 +64,15 @@ def main(settings, env):
     # Log the initial message
     log_message('Starting running mutation finder algorithm')
 
-    # Write the version number of the database and algorithm
-    version_path = settings['version']
-
     # Set the initial version information
     log_algo_version(
-        algo_version = None,
+        algo_version = settings.version,
         settings = settings,
         env = env
     )
 
     # Get the database path
-    database_path = env.get_sharedpath(settings.database)
+    database_path = settings.database
 
     # Log it
     log_message('Database path found at: {}'.format(
@@ -106,10 +102,7 @@ def main(settings, env):
 
     final_results, antibios_out = sequence_database.results_parser(results, f=results_parser)
 
-    log_message('Predicting {} mutations of interest'.format(
-        sum(final_results['results'].values())))
-
-    log_message('Writing results out...')
+    log_message('Writing results out...', extra=1)
 
     write_results('resistance.point.json', json.dumps(final_results))
 
@@ -200,22 +193,20 @@ class DbInfo(DbInfo):
                 gene_id = parts[0]
                 gene_name = parts[1]
 
-                num_mutations_needed = int(parts[2])
-
                 # You need to multiply this number by
                 # 3... codon duh
-                codon_position = int(parts[3])
+                codon_position = int(parts[2])
 
                 # These don't need splitting per se
                 # however you might as well since
                 # you never know how the file will look
                 # in the future
-                reference_codon = parts[4].split(',')
-                reference_aa = parts[5].split(',')
-                resistance_aa = parts[6].split(',')
-                resistance = parts[7].replace('resistance', '')
-                resistance = map(str.strip, resistance.split(','))
-                pm_ids = parts[8].split(',')
+                reference_codon = parts[3].split(',')
+                reference_aa = parts[4].split(',')
+                resistance_aa = parts[5].split(',')
+                resistance = parts[6].replace('resistance', '')
+                resistance = list(map(str.strip, resistance.split(',')))
+                pm_ids = parts[7].split(',')
 
                 coding_gene = gene_id not in self._rna_genes and \
                     'promoter' not in gene_id.lower()
@@ -224,7 +215,6 @@ class DbInfo(DbInfo):
                     MutationTarget(
                         gene_id = gene_id,
                         gene_name = gene_name,
-                        num_mutations_needed = num_mutations_needed,
                         codon_position = codon_position,
                         reference_codon = reference_codon,
                         reference_aa = reference_aa,
@@ -301,5 +291,7 @@ def results_parser(dbinfo, interpretations):
             for r in mutation_target.resistance:
                 notes_out['results'][r] = notes_out['results'].get(r, False)
 
+    log_message('Predicting {} mutations of interest'.format(
+        sum(final_results['results'].values())))
 
     return final_results, notes_out

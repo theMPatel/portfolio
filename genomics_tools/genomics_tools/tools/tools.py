@@ -117,7 +117,7 @@ def add_cmdline_args(executable_name, cmd_args, args):
                         )
     for arg in args:
 
-        if not isinstance(arg, basestring) or not \
+        if not isinstance(arg, str) or not \
             arg.startswith('-'):
 
             log_warning('Invalid argument provided for {}:'
@@ -144,7 +144,7 @@ def add_cmdline_kwargs(executable_name, cmd_args, kwargs):
                         )
 
     for arg, value in kwargs.items():
-        if not isinstance(arg, basestring) or not \
+        if not isinstance(arg, str) or not \
             arg.startswith('-'):
 
             log_warning('Invalid argument provided for {}:'

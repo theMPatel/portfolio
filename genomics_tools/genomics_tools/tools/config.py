@@ -19,7 +19,7 @@ class Config(object):
 
     def load(self, filepath):
 
-        if isinstance(filepath, basestring):
+        if isinstance(filepath, str):
 
             if not os.path.exists(filepath):
                 raise RuntimeError('Not a valid filepath to load'

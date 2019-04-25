@@ -9,6 +9,7 @@
 ###################################################################
 
 import os
+import shutil
 import subprocess as sp
 from collections import namedtuple
 from .environment import (
@@ -27,12 +28,6 @@ BLASTSettings = namedtuple('BLASTSettings', [
 _platform = os.name
 
 def create_blastdb(fastaflname, dbpath, env):
-
-    toolspath = env.toolsdir
-
-    if not check_dir(toolspath):
-        raise RuntimeError('Invalid tools path: {}'.format(
-            toolspath))
 
     # Create the directories if they don't exist
     valid_dir(os.path.dirname(dbpath))
@@ -118,10 +113,18 @@ def align_blast_nodb(query, subject, settings, env):
     blast_formatstr = ' '.join(blast_format)
 
     # Path for the output file
-    outputfile = os.path.join(env.localdir, 'blastout.txt')
+    outputfile = os.path.join(env.tempdir, 'blastout.txt')
+    blastn_name = "blastn"
+
+    if _platform == 'nt':
+        blastn_name += '.exe'
 
     # blastn path
-    blastn = os.path.join(env.toolsdir, 'all_tools/blastn')
+    blastn = shutil.which(blastn_name)
+
+    # Check to make sure the tool exists
+    if blastn is None:
+        raise RuntimeError('Missing ncbi->blastn')
 
     if _platform == 'nt':
         blastn += '.exe'
@@ -163,7 +166,7 @@ def align_blast_nodb(query, subject, settings, env):
     exit_code = child.returncode
 
     # Log what we got out of the blastn
-    for line in stdout.strip().split('\n'):
+    for line in stdout.decode().strip().split('\n'):
         log_message(line, extra=1)
 
     if exit_code:
@@ -450,7 +453,7 @@ class GenotypeResults(object):
                 ' genotyping hits')
 
         # If we are given a file path rather than a file obj
-        if isinstance(filename, basestring):
+        if isinstance(filename, str):
 
             if os.path.exists(filename):
 
