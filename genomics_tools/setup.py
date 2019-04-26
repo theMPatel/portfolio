@@ -339,6 +339,13 @@ def fetch_pointfinder_db(tools_dir):
     # Straight forward, this is all we need to do
     subprocess.check_call(args)
 
+def fetch_sequence_data():
+    """
+    Fetches assemblies from the NCBI ftp site
+    GCA_000299455.1_ASM29945v1_genomic.fna
+    """
+    pass
+
 _valid_directory_names = ['ncbi_blast', 'pointfinder_db']
 def retrieve_necessary_deps():
     """
