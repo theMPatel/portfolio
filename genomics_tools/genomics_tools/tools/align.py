@@ -1,22 +1,24 @@
 ###################################################################
 #
-# All things alignment for the genotyping algorithm
+# All things alignment for the genotyping algorithm.
 # 
+# This tool is a sample and distillation of the real application
+# hosted at: https://github.com/theMPatel/functional_genomics_tools
+#
 # Author: Milan Patel
-# Contact: mpatel5@cdc.gov
+# Contact: https://github.com/theMPatel
 # Version 1.0
 #
 ###################################################################
 
+from collections import namedtuple
 import os
 import shutil
 import subprocess as sp
-from collections import namedtuple
+
 from .environment import (
-    log_message,
-    log_error,
-    check_dir,
-    valid_dir
+    log_message, log_error,
+    check_dir, valid_dir
 )
 
 BLASTSettings = namedtuple('BLASTSettings', [
@@ -142,8 +144,6 @@ def align_blast_nodb(query, subject, settings, env):
        '-task', settings.task,
        '-subject', subject,
        '-query', query,
-       # Subtract 1 to inlcude room for the parent that
-       # calls this
        '-num_threads', str(max(1, min(4, env.threads-1))),
        '-out', outputfile,
        '-perc_identity', str(int(100.0*settings.identity)),
@@ -226,8 +226,6 @@ def align_blast(query, blastdb, settings, env):
        '-task', settings.task,
        '-query', query,
        '-db', blastdb,
-       # Subtract 1 to include room for the parent that
-       # calls this
        '-num_threads', str(max(1, min(4, env.threads-1))),
        '-out', outputfile,
        '-perc_identity', str(int(100.0*settings.identity)),

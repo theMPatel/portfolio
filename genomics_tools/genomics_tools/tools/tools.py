@@ -1,9 +1,12 @@
 ###################################################################
 #
-# Tools for the genotyping algorithm
+# Tools for the genotyping algorithm.
 # 
+# This tool is a sample and distillation of the real application
+# hosted at: https://github.com/theMPatel/functional_genomics_tools
+#
 # Author: Milan Patel
-# Contact: mpatel5@cdc.gov
+# Contact: https://github.com/theMPatel
 # Version 1.0
 #
 ###################################################################
@@ -22,10 +25,8 @@ from collections import OrderedDict, namedtuple
 from itertools import combinations
 
 from .environment import (
-    full_path,
-    log_message,
-    log_warning,
-    log_exception,
+    full_path, log_message,
+    log_warning, log_exception,
     log_error
 )
 

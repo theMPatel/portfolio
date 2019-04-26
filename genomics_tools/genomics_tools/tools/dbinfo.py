@@ -1,24 +1,25 @@
 ###################################################################
 #
-# Methods and classes for reference databases
+# Methods and classes for reference sequence 'databases'.
 # 
+# This tool is a sample and distillation of the real application
+# hosted at: https://github.com/theMPatel/functional_genomics_tools
+#
 # Author: Milan Patel
-# Contact: mpatel5@cdc.gov
+# Contact: https://github.com/theMPatel
 # Version 1.0
 #
 ###################################################################
 
-import os
 from collections import namedtuple, defaultdict
+import os
 
 from .tools import (
-    parse_fasta,
-    is_fasta,
+    parse_fasta, is_fasta,
 )
 
 from .environment import (
-    check_dir,
-    valid_dir
+    check_dir, valid_dir
 )
 
 # 'Structs' for datastorage
@@ -124,15 +125,8 @@ class DbInfo(object):
 
                 else:
 
-                    # # Create the new id, 0-indexed
-                    # new_id = allele_id_template_i.format(
-                    #     seq_info.locus,
-                    #     seq_info.allele, 
-                    #     0
-                    # )
-
                     # Set the seq_info, seq_counts just
-                    # functions to store the counts
+                    # function to store the counts
                     sequence_counts[allele_id][allele_id] = True
                     self._sequences[allele_id] = seq_info
 
@@ -164,10 +158,8 @@ class DbInfo(object):
 
     def export_sequences(self, filepath):
 
-        # Make sure the directory exists
         valid_dir(os.path.dirname(filepath))
 
-        # Open
         with open(filepath, 'w') as f:
 
             for seq_id, seq_info in self._sequences.items():
@@ -212,21 +204,16 @@ class DbInfo(object):
 
         for result, geno_regions in results.items():
 
-            # The sequence information for this result
             sequence_info = sequences[result]
-            
-            # The locus of this sequence
             locus = sequence_info.locus
-
-            # The allele of the found genotype, if there is one
             allele = sequence_info.allele
 
-            # gene_name = '_'.join([locus, allele])
             # Changing the output of the character since only the locus
             # is important *for surveillance*
             gene_name = locus
 
-            # Add the locus to the results
+            # This gives us an easy way to scan the mapping and see
+            # which genes are present
             results_out['results'][gene_name] = True
 
             # This will be the extra information that
@@ -259,16 +246,9 @@ class DbInfo(object):
 
             locus = sequence_info.locus
             allele = sequence_info.allele
-
-            # gene_name = '_'.join([locus, allele])
             gene_name = locus
 
             if gene_name not in results_out['results']:
                 results_out['results'][gene_name] = False
 
-            # results_out['results'][gene_name] = gene_name in results_out['results']
-
         return results_out
-    
-
-

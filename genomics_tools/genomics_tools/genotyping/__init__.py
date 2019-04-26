@@ -2,8 +2,11 @@
 #
 # Init file for the genotyping algorithm
 # 
-# Author: Milan Patel, with some direction from key mentors ;)
-# Contact: mpatel5@cdc.gov
+# This tool is a sample and distillation of the real application
+# hosted at: https://github.com/theMPatel/functional_genomics_tools
+#
+# Author: Milan Patel
+# Contact: https://github.com/theMPatel
 # Version 1.0
 #
 ###################################################################

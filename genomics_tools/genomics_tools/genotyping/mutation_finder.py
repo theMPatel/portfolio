@@ -2,8 +2,11 @@
 #
 # Caller script for the mutation detection workflow
 # 
+# This tool is a sample and distillation of the real application
+# hosted at: https://github.com/theMPatel/functional_genomics_tools
+#
 # Author: Milan Patel
-# Contact: mpatel5@cdc.gov
+# Contact: https://github.com/theMPatel
 # Version 1.0
 #
 ###################################################################
@@ -13,21 +16,17 @@
 # the same time
 
 from tools.environment import (
-    log_message,
-    log_error,
-    log_progress,
-    log_algo_version,
+    log_message, log_error,
+    log_progress, log_algo_version,
     write_results
 )
 
 from tools.dbinfo import (
-    DbInfo,
-    SequenceInfo
+    DbInfo, SequenceInfo
 )
 
 from tools.tools import (
-    is_fasta,
-    parse_fasta
+    is_fasta, parse_fasta
 )
 
 from tools.fancy_tools import pretty_aln

@@ -2,8 +2,11 @@
 #
 # Fancy tools!
 # 
+# This tool is a sample and distillation of the real application
+# hosted at: https://github.com/theMPatel/functional_genomics_tools
+#
 # Author: Milan Patel
-# Contact: mpatel5@cdc.gov
+# Contact: https://github.com/theMPatel
 # Version 1.0
 #
 ###################################################################
@@ -45,30 +48,39 @@ class Disjointset(object):
                 self._rank[real_source] += 1
 
 
-def edit_distance(c, n, matrix=False):
-    c_l = len(c)
-    n_l = len(n)
+def edit_distance(string_a, string_b, matrix=False):
+    """
+    Returns the minimum edit distance between two strings.
+    :param string_a: The first string
+    :param string_b: The second string
+    :param matrix: Whether you would like the calculated matrix
+        of distances.
+    :returns: The minimum distance
+    :returns: The calculated matrix
+    :rtype: int | list
+    """
 
-    if not c_l:
-        return n_l
+    string_a_len = len(string_a)
+    string_b_len = len(string_b)
 
-    if not n_l:
-        return c_l
+    if not string_a_len:
+        return string_b_len
 
-    m = [[0]*(n_l+1) for _ in range(c_l+1)]
+    if not string_b_len:
+        return string_a_len
 
-    for i in range(c_l+1):
+    m = [[0]*(string_b_len+1) for _ in range(string_a_len+1)]
+
+    for i in range(string_a_len+1):
         m[i][0] = i
 
-    for j in range(n_l+1):
+    for j in range(string_b_len+1):
         m[0][j] = j
 
-    for i in range(c_l):
+    for i in range(string_a_len):
+        for j in range(string_b_len):
 
-        for j in range(n_l):
-
-            if c[i] == n[j]:
-
+            if string_a[i] == string_b[j]:
                 m[i+1][j+1] = m[i][j]
 
             else:
@@ -82,9 +94,18 @@ def edit_distance(c, n, matrix=False):
     if matrix:
         return m
     else:
-        return m[c_l][n_l]
+        return m[string_a_len][string_b_len]
 
 def get_alignment(seq1, seq2):
+    """
+    Aligns two sequences together via edit distance. This is 
+    primarily for *global* alignment, if you want local alignment
+    you should use something different.
+
+    :param seq1: The first sequence
+    :param seq2: The second sequence
+    """
+
     if not seq1 or not seq2:
         return
     
@@ -96,6 +117,7 @@ def get_alignment(seq1, seq2):
     seq1_aln = []
     seq2_aln = []
 
+    # Walk the returned matrix and build up the sequence.
     while i >= 1 and j >= 1:
 
         v = m[i][j]
@@ -109,6 +131,7 @@ def get_alignment(seq1, seq2):
             j -= 1
             seq1_aln.append(seq1[i])
             seq2_aln.append(seq2[j])
+        
         else:
             m_val = min([up_left, left, up])
 
@@ -118,6 +141,7 @@ def get_alignment(seq1, seq2):
                 seq1_aln.append(seq1[i])
                 seq2_aln.append(seq2[j])
 
+            # Use dashes for insertions/deletions
             elif left == m_val:
                 j -= 1
                 seq2_aln.append(seq2[j])
@@ -140,6 +164,21 @@ def get_alignment(seq1, seq2):
     return list(reversed(seq1_aln)), list(reversed(seq2_aln)), m[-1][-1]
 
 def pretty_aln(a, b, wrap=70):
+    """
+    Takes two strings that are presumed to be the same length
+    and already aligned and creates a pretty output of the
+    sequences that's easier for a human to read.
+    Output would look like below:
+
+    >>> pretty_aln(string_a, string_b)
+    CCATGGTGACTCGGCGGTCTA
+    |||||||||| ||||||| ||
+    CCATGGTGACGCGGCGGTTTA
+    
+    :param a: String to put on top.
+    :param b: String to put on bottom.
+    """
+    
     pipe_str = []
     for x, y in zip(a,b):
         

@@ -29,17 +29,12 @@ if base_path not in sys.path:
     sys.path.append(base_path)
 
 from tools.environment import (
-    Environment,
-    initialize_logging,
+    Environment, initialize_logging,
     graceful_shutdown_logging,
-    ResultWriter,
-    log_message,
-    log_progress,
-    log_error,
-    log_exception,
-    log_algo_params,
-    get_stack_len,
-    set_base_depth
+    ResultWriter, log_message,
+    log_progress, log_error,
+    log_exception, log_algo_params,
+    get_stack_len, set_base_depth
 )
 
 from genotyping import mutation_finder

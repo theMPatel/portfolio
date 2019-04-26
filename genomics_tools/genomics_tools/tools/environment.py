@@ -1,11 +1,13 @@
 ###################################################################
 #
-# Environment specifics for the genotyping algorithm
-# You can use this for basically anything you want to
-# implement into the Calculation Engine
+# Environment specifics and logging tools for the genomics_tools 
+# algorithm.
 # 
+# This tool is a sample and distillation of the real application
+# hosted at: https://github.com/theMPatel/functional_genomics_tools
+#
 # Author: Milan Patel
-# Contact: mpatel5@cdc.gov
+# Contact: https://github.com/theMPatel
 # Version 1.0
 #
 ###################################################################
@@ -204,7 +206,6 @@ def log_message(msg, extra=0):
 def log_error(msg, extra=0):
     depth = get_message_depth(base_depth, extra)
     logging.error(msg, depth)
-    logging.info('There was an error, check logs!', depth)
 
 def log_warning(msg, extra=0):
     depth = get_message_depth(base_depth, extra)
@@ -594,8 +595,8 @@ class ResultWriter(object):
             
             try:
                 out = base64.b64encode(content)
-            except:
-                log_warning('Failed to b64encode results!')
+            except Exception as e:
+                log_error('Failed to b64encode results!')
 
         with open(path, 'w') as f:
             f.write(out)

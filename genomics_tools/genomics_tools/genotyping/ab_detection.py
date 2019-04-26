@@ -2,30 +2,28 @@
 #
 # Tools for assembly based genotyping prediction
 # 
+# This tool is a sample and distillation of the real application
+# hosted at: https://github.com/theMPatel/functional_genomics_tools
+#
 # Author: Milan Patel
-# Contact: mpatel5@cdc.gov
+# Contact: https://github.com/theMPatel
 # Version 1.0
 #
 ###################################################################
 
 from tools.environment import (
-    log_message,
-    log_error,
-    log_progress,
-    valid_dir
+    log_message,log_error,
+    log_progress,valid_dir
 )
 
 from tools.align import (
-    BLASTSettings,
-    create_blastdb,
-    align_blast,
-    align_blast_nodb,
+    BLASTSettings, create_blastdb,
+    align_blast, align_blast_nodb,
     GenotypeHit
 )
 
 from tools.tools import (
-    reverse_complement,
-    codon_translation,
+    reverse_complement, codon_translation,
     binary_search
 )
 
@@ -42,10 +40,7 @@ def presence_detector(sequence_database, query_path, cached_query, percent_ident
     # Let's export the references
     log_message('Exporting references...')
 
-    # Make the path
     reference_dir = os.path.join(env.localdir, 'blastdb')
-    
-    # Check to make sure that its a real dir
     valid_dir(reference_dir)
 
     reference_path = os.path.join(reference_dir, 'references.fasta')
@@ -60,10 +55,8 @@ def presence_detector(sequence_database, query_path, cached_query, percent_ident
 
     log_message('Creating blast database...')
 
-    # Create the blast database
     create_blastdb(reference_path, blast_db_path, env)
 
-    # Log that we were successful
     log_message('Successfully created blast database!')
 
     # Create the blast settings so that we can run the thing!
@@ -91,13 +84,13 @@ def presence_detector(sequence_database, query_path, cached_query, percent_ident
 
     log_message('Determining genotype coverages...')
     
-    # Create the hit objects
+    # Organize the hit data based on the reference data
     regions = Genotype.find_regions(results, contig_sizes, sequence_database)
 
     log_message('Found {} potential genotypes!'.format(len(regions)))
 
     # Figure out which ones are actually worth keeping
-    log_message('Determining accetable genotypes...')
+    log_message('Determining acceptable genotypes...')
 
     # Remove those that do not have a predicted genotype
     to_remove = set()
@@ -110,7 +103,6 @@ def presence_detector(sequence_database, query_path, cached_query, percent_ident
         ):
             to_remove.add(region.reference_id)
 
-    # Remove the genotypes that don't have anything
     for rm in to_remove:
         del regions[rm]
 
@@ -130,18 +122,14 @@ def presence_detector(sequence_database, query_path, cached_query, percent_ident
 def mutation_detector(sequence_database, query_path, percent_identity,
     min_relative_coverage, env):
     
-    # Let's export the references
     log_message('Exporting references...')
 
-    # Make the path
     reference_dir = os.path.join(env.tempdir, 'blastdb')
     
-    # Check to make sure that its a real dir
     valid_dir(reference_dir)
 
     reference_path = os.path.join(reference_dir, 'references.fasta')
 
-    # Export the reference sequences for blast database creation
     sequence_database.export_sequences(reference_path)
 
     log_message('Successfully exported reference database...')
@@ -150,9 +138,6 @@ def mutation_detector(sequence_database, query_path, percent_identity,
     blast_db_path = os.path.join(env.tempdir, 'blastdb', 'db.fasta')
 
     log_message('Creating blast database...')
-
-    # Create the blast database
-    #create_blastdb(reference_path, blast_db_path, env)
 
     # Log that we were successful
     log_message('Successfully created blast database!')
@@ -179,10 +164,8 @@ def mutation_detector(sequence_database, query_path, percent_identity,
     )
 
     log_message('Successfully BLASTed query genome against reference database')
-
     log_message('Searching for mutations...')
 
-    # Figure out the mutations that exist in the sequences
     interpretations = find_mutations(
         sequence_database,
         results,
@@ -634,7 +617,7 @@ def eliminate_overlap(regions, min_merge_overlap):
         # Add it to the set of children
         #   NOTE:
         # A parent is a child of itself,
-        # so the childrens list will include all
+        # so the children list will include all
         # of the parent's children plus itself
         best_hits[parent].add(i)
 
