@@ -34,7 +34,6 @@ from itertools import combinations, product
 from tools.fancy_tools import Disjointset
 from collections import defaultdict, namedtuple
 
-
 GenotypeRegion = namedtuple('GenotypeRegion', ['coverage', 'identity', 'locations'])
 
 def presence_detector(sequence_database, query_path, cached_query, percent_identity,
@@ -292,6 +291,8 @@ def find_mutations(sequence_database, results, min_relative_coverage):
 
                     ins_offset = max_ins + 1
 
+                    # The case where the mutation is the result of an
+                    # insertion
                     if '-' not in reference_codons:
                         while hit_ref_seq[string_start+ins_offset] == '-' and \
                             string_end+ins_offset+1 < len(hit_ref_seq):
@@ -340,7 +341,15 @@ def find_mutations(sequence_database, results, min_relative_coverage):
 
                     assert len(hit_query_codon) == 3
 
-                    ref_start_log
+                    ref_start_index_log = max(0, string_start + ins_offset - 10)
+                    ref_end_index_log = min(len(hit_ref_seq),
+                                            ref_start_index_log + 21)
+                    ref_slice = slice(ref_start_index_log, ref_end_index_log, 1)
+
+                    query_start_index_log = max(0, string_start + del_offset -10)
+                    query_end_index_log = min(len(hit_query_seq),
+                                            query_start_index_log + 21)
+                    query_slice = slice(query_start_index_log, query_end_index_log, 1)
 
                     # Get the translation
                     query_translation = codon_translation(hit_query_codon)
@@ -359,8 +368,8 @@ def find_mutations(sequence_database, results, min_relative_coverage):
                             'resistance' : resistances,
                             'hit': hit,
                             'iscoding' : target.coding_gene,
-                            'reference': hit_ref_seq[user_out_align_start:user_out_align_end],
-                            'query' : hit_query_seq[user_out_align_start:user_out_align_end]
+                            'reference': hit_ref_seq[ref_slice],
+                            'query' : hit_query_seq[query_slice]
                         }
 
 
@@ -449,8 +458,16 @@ def find_mutations(sequence_database, results, min_relative_coverage):
 
                     # Get the query string nucleotide
                     hit_query_nucleotide = hit_query_seq[string_start+del_offset]
-                    user_out_align_start = max(0, string_start+del_offset-10)
-                    user_out_align_end = min(string_end+del_offset+11, len(hit_ref_seq))
+                    
+                    ref_start_index_log = max(0, string_start + ins_offset - 10)
+                    ref_end_index_log = min(len(hit_ref_seq),
+                                            ref_start_index_log + 21)
+                    ref_slice = slice(ref_start_index_log, ref_end_index_log, 1)
+
+                    query_start_index_log = max(0, string_start + del_offset -10)
+                    query_end_index_log = min(len(hit_query_seq),
+                                            query_start_index_log + 21)
+                    query_slice = slice(query_start_index_log, query_end_index_log, 1)
 
                     # Figure out if the hit is the same as a resistance
                     # nuc that is known
@@ -467,8 +484,8 @@ def find_mutations(sequence_database, results, min_relative_coverage):
                             'aa_mutation' : '',
                             'hit': hit,
                             'iscoding' : target.coding_gene,
-                            'reference': hit_ref_seq[user_out_align_start:user_out_align_end],
-                            'query' : hit_query_seq[user_out_align_start:user_out_align_end]
+                            'reference': hit_ref_seq[ref_slice],
+                            'query' : hit_query_seq[query_slice]
                         }
 
                         mutation_results[hit.reference_id].append(results)

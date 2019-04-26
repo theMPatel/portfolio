@@ -102,17 +102,25 @@ def main(settings, env):
         env
     )
 
-    final_results, antibios_out = sequence_database.results_parser(results, f=results_parser)
+    final_results, antibios_out = sequence_database.results_parser(
+        results, f=results_parser)
 
     log_message('Writing results out...', extra=1)
-
     write_results('resistance.point.json', json.dumps(final_results))
 
     # Success!
     log_message('Successfully ran mutation finder algorithm!')
 
     for result in final_results['extra']:
-        log_message("Found:\n"+result['alignment'])
+        log_message("")
+        log_message("Gene: {}".format(result['locus']))
+        log_message("Match: {}".format(result['identity']*100))
+        log_message("Contig: {}".format(result['contig_id']))
+        log_message("Amino change: {}".format(result['aa_mutation']))
+        log_message("Resistance: {}".format(", ".join(result["resistance"])))
+        log_message("Reference")
+        list(map(log_message, result['alignment'].splitlines()))
+        log_message("Query")
 
     return antibios_out
 
@@ -248,6 +256,8 @@ def results_parser(dbinfo, interpretations):
 
     log_message('Determining optimal gene coverages...')
     for gene, mutation in interpretations.items():
+        if "16s" in gene.lower():
+            continue
 
         for mutation_info in mutation:
 
