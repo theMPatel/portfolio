@@ -260,10 +260,10 @@ def find_mutations(sequence_database, results, min_relative_coverage):
                 # is stored as the position of the codon
                 # i.e. codon 415 is nucleotide position 415*3
                 if target.coding_gene:
-                    # Get the postional information for this target
+                    # Get the positional information for this target
                     # These are the (1-indexed) values which we
                     # transform into the (0-indexed) position.
-                    # You could leave the end postion without
+                    # You could leave the end position without
                     # subtracting 1 to make list slicing easier
                     # Instead, I've left this here for the next
                     # person so they can understand what is really
@@ -340,6 +340,8 @@ def find_mutations(sequence_database, results, min_relative_coverage):
 
                     assert len(hit_query_codon) == 3
 
+                    ref_start_log
+
                     # Get the translation
                     query_translation = codon_translation(hit_query_codon)
 
@@ -356,7 +358,9 @@ def find_mutations(sequence_database, results, min_relative_coverage):
                                 reference_aas[0], query_translation),
                             'resistance' : resistances,
                             'hit': hit,
-                            'iscoding' : target.coding_gene
+                            'iscoding' : target.coding_gene,
+                            'reference': hit_ref_seq[user_out_align_start:user_out_align_end],
+                            'query' : hit_query_seq[user_out_align_start:user_out_align_end]
                         }
 
 
@@ -445,6 +449,8 @@ def find_mutations(sequence_database, results, min_relative_coverage):
 
                     # Get the query string nucleotide
                     hit_query_nucleotide = hit_query_seq[string_start+del_offset]
+                    user_out_align_start = max(0, string_start+del_offset-10)
+                    user_out_align_end = min(string_end+del_offset+11, len(hit_ref_seq))
 
                     # Figure out if the hit is the same as a resistance
                     # nuc that is known
@@ -460,7 +466,9 @@ def find_mutations(sequence_database, results, min_relative_coverage):
                             'resistance' : resistances,
                             'aa_mutation' : '',
                             'hit': hit,
-                            'iscoding' : target.coding_gene
+                            'iscoding' : target.coding_gene,
+                            'reference': hit_ref_seq[user_out_align_start:user_out_align_end],
+                            'query' : hit_query_seq[user_out_align_start:user_out_align_end]
                         }
 
                         mutation_results[hit.reference_id].append(results)

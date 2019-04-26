@@ -30,6 +30,8 @@ from tools.tools import (
     parse_fasta
 )
 
+from tools.fancy_tools import pretty_aln
+
 from .ab_detection import (
     mutation_detector
 )
@@ -108,6 +110,9 @@ def main(settings, env):
 
     # Success!
     log_message('Successfully ran mutation finder algorithm!')
+
+    for result in final_results['extra']:
+        log_message("Found:\n"+result['alignment'])
 
     return antibios_out
 
@@ -265,7 +270,9 @@ def results_parser(dbinfo, interpretations):
                         'query_codon': mutation_info['query_codon'],
                         'iscoding' : mutation_info['iscoding'],
                         'resistance' : mutation_info['resistance'],
-                        'position' : mutation_info['position']
+                        'position' : mutation_info['position'],
+                        'alignment' : pretty_aln(mutation_info['reference'],
+                                        mutation_info['query'])
                 }
 
             final_results['extra'].append(hit_info)
