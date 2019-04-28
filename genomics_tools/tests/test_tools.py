@@ -134,7 +134,8 @@ class TestGenericTools:
         "seq1, seq2, expected", (
             ("ACTGS", "ACTGS", 0),
             ("AATAAG", "ATTAAG", 1),
-            ("AAAAA", "TTTTT", 5)
+            ("AAAAA", "TTTTT", 5),
+            ("AAAAAA", "AAAAAAAAA", 3)
         )
     )
     def test_sequence_mismatches(self, seq1, seq2, expected):

@@ -18,6 +18,7 @@
 from distutils import log
 import ftplib
 import functools
+import gzip
 import hashlib
 import io
 import os
@@ -98,7 +99,6 @@ def download_and_write(data, file_handle=None):
     file_handle.write(data)
 
 NCBI_ENDPOINT = "ftp.ncbi.nlm.nih.gov"
-BLAST_DIR = "blast/executables/blast+/LATEST/"
 
 _tools_dirs = [
     os.path.normpath(os.path.expanduser("~/.tools")),
@@ -106,9 +106,13 @@ _tools_dirs = [
     os.path.normpath(os.path.expanduser("~/.tmp"))
 ]
 
-final_ncbi_foldername = "ncbi_blast"
+_valid_directory_names = { 
+        "NCBI" :'ncbi_blast',
+        "DB" : 'pointfinder_db',
+        "SEQ" : 'sequence_data'
+        }
 
-def get_discriminator_string_by_platform(plaform):
+def get_discriminator_string_by_platform(platform):
     """
     This is specifically for the NCBI tools since
     they have the OS a particular package was intended
@@ -233,90 +237,24 @@ def untar_contents_to_dir(source_tar, tarfile_final_path):
             member.name = '/'.join(member.name.split('/')[1:])
             tfile.extract(member, path=tarfile_final_path)
 
-def fetch_ncbi_tools(tarfile_final_path, retry_count=0):
+def gunzip_file(source, destination):
     """
-    Fetches the ncbi tools by logging into their FTP site
-    anonymously, changing directories to the latest tools path,
-    determining the correct package based on OS and downloading
-    both the tar and the md5. This is all assuming you're using
-    a x64 OS (sorry if that's not the case)
+    Unzip from a source path to a destination path
 
-    :param tarfile_final_path: The final resting place for
-        these tools
-
-    :param retry_count: The current retry count in case the download
-        from NCBI fails
+    :param source: The source gzip file
+    :param destination: The destination zip file
     """
-    actual_tools_needed = ['makeblastdb', 'blastn']
-    
-    if os.name == 'nt':
-        for i in range(len(actual_tools_needed)):
-            actual_tools_needed[i] += '.exe'
-    
-    if all(shutil.which(tool) for tool in actual_tools_needed):
-        log.info("Looks like we have the blast tools we need " \
-            "already!")
 
-        return
+    if not hasattr(source, 'read'):
+        source = gzip.open(source, 'rb')
 
-    log.info("Needed blast tools not found, proceeding with fetch")
+    if not hasattr(destination, 'write'):
+        destination = open(destination, 'wb')
 
-    if retry_count >= 3:
-        raise RuntimeError("Tried to download the NCBI tools three "
-            "times. Now I'm giving up sorry!")
+    shutil.copyfileobj(source, destination)
 
-    os.makedirs(os.path.dirname(tarfile_final_path), exist_ok=True)
-    tempdir_obj = tempfile.TemporaryDirectory()
-    tempdir = tempdir_obj.name
-
-    log.info("Beginning to download NCBI tools from: " + NCBI_ENDPOINT)
-    with ftplib.FTP(NCBI_ENDPOINT) as ftp_conn:
-
-        ftp_conn.login()
-        ftp_conn.cwd(BLAST_DIR)
-
-        # The latest tools are available as tars which is nice since
-        # I won't be able to invoke your system installer from here.
-        available_versions = [file for file in ftp_conn.nlst() if \
-                                file.endswith("tar.gz") and "src" not in file]
-
-        search_string = get_discriminator_string_by_platform(sys.platform)
-
-        package = next(file for file in available_versions \
-                        if search_string in file)
-
-        tar_file_path = os.path.join(tempdir, package)
-        files = [package, package+".md5"]
-
-        for i, file in enumerate(files):
-            path = os.path.join(tempdir, file)
-
-            with open(path, "wb") as handle:
-                downloader = functools.partial(download_and_write,
-                    file_handle=handle)
-                
-                log.info("Beginning to download: {}"
-                    .format(file))
-
-                ftp_conn.retrbinary("RETR "+file, downloader)
-
-            files[i] = path
-
-    local_file = files[0]
-    local_file_md5 = files[1]
-    md5_data = parse_md5_file(local_file_md5)
-
-    if not verify_download_md5(local_file, md5_data):
-        log.error("Download failed md5 verification, will try a total of "
-            " 3 times before quitting.")
-
-        # Back off factor of 2
-        time.sleep(2*(retry_count+1))
-
-        return fetch_ncbi_tools(tarfile_final_path, retry_count=retry_count+1)
-
-    untar_contents_to_dir(tar_file_path, tarfile_final_path)
-    tempdir_obj.cleanup()
+    source.close()
+    destination.close()
 
 def git_checkout(branch):
     """
@@ -353,6 +291,92 @@ def git_pull(branch):
     args = ["git", "pull"]
     subprocess.check_call(args)
 
+BLAST_DIR = "blast/executables/blast+/LATEST/"
+def fetch_ncbi_tools(tools_dir, retry_count=0):
+    """
+    Fetches the ncbi tools by logging into their FTP site
+    anonymously, changing directories to the latest tools path,
+    determining the correct package based on OS and downloading
+    both the tar and the md5. This is all assuming you're using
+    a x64 OS (sorry if that's not the case)
+
+    :param tarfile_final_path: The final resting place for
+        these tools
+
+    :param retry_count: The current retry count in case the download
+        from NCBI fails
+    """
+    actual_tools_needed = ['makeblastdb', 'blastn']
+    
+    if os.name == 'nt':
+        for i in range(len(actual_tools_needed)):
+            actual_tools_needed[i] += '.exe'
+    
+    if all(shutil.which(tool) for tool in actual_tools_needed):
+        log.info("Looks like we have the blast tools we need " \
+            "already!")
+
+        return
+
+    log.info("Needed blast tools not found, proceeding with fetch")
+
+    if retry_count >= 3:
+        raise RuntimeError("Tried to download the NCBI tools three "
+            "times. Now I'm giving up sorry!")
+
+    tarfile_final_path = os.path.join(tools_dir,
+        _valid_directory_names.get("NCBI", "ncbi_blast"))
+    os.makedirs(tarfile_final_path, exist_ok=True)
+    tempdir_obj = tempfile.TemporaryDirectory()
+    tempdir = tempdir_obj.name
+
+    log.info("Beginning to download NCBI tools from: " + NCBI_ENDPOINT)
+    with ftplib.FTP(NCBI_ENDPOINT) as ftp_conn:
+
+        ftp_conn.login()
+        ftp_conn.cwd(BLAST_DIR)
+
+        # The latest tools are available as tars which is nice since
+        # I won't be able to invoke your system installer from here.
+        available_versions = [file for file in ftp_conn.nlst() if \
+                                file.endswith("tar.gz") and "src" not in file]
+
+        search_string = get_discriminator_string_by_platform(sys.platform)
+        package = next(file for file in available_versions \
+                        if search_string in file)
+
+        tar_file_path = os.path.join(tempdir, package)
+        files = [package, package+".md5"]
+
+        for i, file in enumerate(files):
+            path = os.path.join(tempdir, file)
+
+            with open(path, "wb") as handle:
+                downloader = functools.partial(download_and_write,
+                    file_handle=handle)
+                
+                log.info("Beginning to download: {}"
+                    .format(file))
+
+                ftp_conn.retrbinary("RETR "+file, downloader)
+
+            files[i] = path
+
+    local_file = files[0]
+    local_file_md5 = files[1]
+    md5_data = parse_md5_file(local_file_md5)
+
+    if not verify_download_md5(local_file, md5_data):
+        log.error("Download failed md5 verification, will try a total of "
+            " 3 times before quitting.")
+
+        # Back off factor of 2
+        time.sleep(2*(retry_count+1))
+        return fetch_ncbi_tools(tarfile_final_path, retry_count=retry_count+1)
+
+    untar_contents_to_dir(tar_file_path, tarfile_final_path)
+    tempdir_obj.cleanup()
+
 def fetch_pointfinder_db(tools_dir):
     """
     Will fetch the point finder database that we use to BLAST
@@ -366,10 +390,11 @@ def fetch_pointfinder_db(tools_dir):
         raise RuntimeError("Please install git somewhere on your path " \
             "before continuing!")
 
+    log.info("Fetching sequence database for mutation search..")
     database = "https://bitbucket.org/genomicepidemiology/" \
         "pointfinder_db.git"
 
-    directory_name = "pointfinder_db"
+    directory_name = _valid_directory_names.get("DB", "pointfinder_db")
     directory_path = os.path.join(tools_dir, directory_name)
     git_directory = os.path.join(directory_path, ".git")
 
@@ -388,14 +413,66 @@ def fetch_pointfinder_db(tools_dir):
     # Straight forward, this is all we need to do
     subprocess.check_call(args)
 
-def fetch_sequence_data():
+def fetch_sequence_data(tools_dir):
     """
     Fetches assemblies from the NCBI ftp site
     GCA_000299455.1_ASM29945v1_genomic.fna
     """
-    pass
+    
+    log.info("Fetching demonstration sequences..")
+    directory_name = _valid_directory_names.get("SEQ", "sequence_data")
 
-_valid_directory_names = ['ncbi_blast', 'pointfinder_db']
+    # (Root_dir, Filename)
+    root = "/"
+    to_retrieve = [
+        ("genomes/all/GCF/000/299/455/GCF_000299455.1_ASM29945v1",
+            "GCF_000299455.1_ASM29945v1_genomic.fna.gz"),
+    ]
+
+    sequence_final_path = os.path.join(tools_dir,
+        _valid_directory_names.get("SEQ", "sequence_data"))
+    os.makedirs(sequence_final_path, exist_ok=True)
+
+    tempdir_obj = tempfile.TemporaryDirectory()
+    tempdir = tempdir_obj.name
+
+    with ftplib.FTP(NCBI_ENDPOINT) as ftp_conn:
+        ftp_conn.login()
+
+        for (remote_path, filename) in to_retrieve:
+
+            dest_path = os.path.join(sequence_final_path, filename).replace(
+                ".gz", "")
+
+            if os.path.exists(dest_path):
+                log.info("Already have: {}".format(dest_path))
+                continue
+
+            ftp_conn.cwd(remote_path)
+            local_file = os.path.join(tempdir, filename)
+
+            with open(local_file, "wb") as handle:
+                downloader = functools.partial(download_and_write,
+                    file_handle=handle)
+
+                log.info("Beginning to download: {}"
+                    .format(filename))
+
+                ftp_conn.retrbinary("RETR "+filename, downloader)
+
+    for downloaded_file in os.listdir(tempdir):
+        source_path = os.path.join(tempdir, downloaded_file)
+        dest_path = os.path.join(sequence_final_path, downloaded_file)
+
+        if ".gz" in dest_path:
+            dest_path = dest_path.replace(".gz", "")
+        try:
+            gunzip_file(source_path, dest_path)
+        except:
+            pass
+
+    tempdir_obj.cleanup()
+
 def retrieve_necessary_deps():
     """
     Retrieves the necessary tools from the remote endpoints and
@@ -418,7 +495,7 @@ def retrieve_necessary_deps():
         paths = list(
             map(
                 lambda tail: os.path.join(path, tail), 
-                _valid_directory_names
+                _valid_directory_names.values()
                 )
             )
         log.info(str(paths))
@@ -448,6 +525,7 @@ def retrieve_necessary_deps():
 
     fetch_ncbi_tools(chosen_tools_dir)
     fetch_pointfinder_db(chosen_tools_dir)
+    fetch_sequence_data(chosen_tools_dir)
 
 class PostDevelopCommand(develop):
     """

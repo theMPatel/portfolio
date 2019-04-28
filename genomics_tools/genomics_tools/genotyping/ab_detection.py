@@ -33,91 +33,6 @@ from collections import defaultdict, namedtuple
 
 GenotypeRegion = namedtuple('GenotypeRegion', ['coverage', 'identity', 'locations'])
 
-def presence_detector(sequence_database, query_path, cached_query, percent_identity,
-    min_relative_coverage, min_merge_overlap, search_fragments, env):
-    
-    # Let's export the references
-    log_message('Exporting references...')
-
-    reference_dir = os.path.join(env.localdir, 'blastdb')
-    valid_dir(reference_dir)
-
-    reference_path = os.path.join(reference_dir, 'references.fasta')
-
-    # Export the reference sequences for blast database creation
-    sequence_database.export_sequences(reference_path)
-
-    log_message('Successfully exported reference database...')
-
-    # Create the path to the blast database
-    blast_db_path = os.path.join(env.localdir, 'blastdb', 'db.fasta')
-
-    log_message('Creating blast database...')
-
-    create_blastdb(reference_path, blast_db_path)
-
-    log_message('Successfully created blast database!')
-
-    # Create the blast settings so that we can run the thing!
-    blast_settings = BLASTSettings(
-        task = 'dc-megablast',
-        identity = percent_identity,
-        relative_minlen = 0,
-        absolute_minlen = 0,
-        include_sequences = False
-        )
-
-    log_message('BLASTing query genome against reference database')
-    
-    # Run the alignment
-    results = align_blast(
-        query_path,
-        blast_db_path,
-        blast_settings,
-        env
-    )
-
-    # Determine the size of the contigs that we are working with
-    contig_sizes = {contig:len(sequence) for \
-        contig, sequence in cached_query.items()}
-
-    log_message('Determining genotype coverages...')
-    
-    # Organize the hit data based on the reference data
-    regions = Genotype.find_regions(results, contig_sizes, sequence_database)
-
-    log_message('Found {} potential genotypes!'.format(len(regions)))
-
-    # Figure out which ones are actually worth keeping
-    log_message('Determining acceptable genotypes...')
-
-    # Remove those that do not have a predicted genotype
-    to_remove = set()
-    for region in regions.itervalues():
-        if not region.validate(
-            percent_identity,
-            min_relative_coverage,
-            contig_sizes,
-            search_fragments
-        ):
-            to_remove.add(region.reference_id)
-
-    for rm in to_remove:
-        del regions[rm]
-
-    log_message('After filtering, {} genotypes were retained'.format(
-        len(regions)))
-
-    # Eliminate any overlap between genotypes of different references
-    # and return the accepted genotypes
-    log_message('Determining optimal genotype(s)', 2)
-    accepted = eliminate_overlap(regions, min_merge_overlap)
-
-    log_message('After overlap analysis, {} genotypes were retained!'.format(
-        len(accepted)))
-
-    return accepted
-
 def mutation_detector(sequence_database, query_path, percent_identity,
     min_relative_coverage, env):
     
@@ -347,10 +262,10 @@ def validate_coding_gene(hit, target, ref_gaps, query_gaps, **kwargs):
     assert len(hit_query_codon) == 3
 
     ref_slice = create_sequence_slice(hit_ref_seq, string_start, 
-                                        ins_offset, 20)
+                                        ins_offset, 10)
 
     query_slice = create_sequence_slice(hit_query_seq, string_start,
-                                        del_offset, 20)
+                                        del_offset, 10)
 
     # Get the translation
     query_translation = codon_translation(hit_query_codon)
@@ -482,10 +397,10 @@ def validate_noncoding_gene(hit, target, ref_gaps, query_gaps, **kwargs):
     hit_query_nucleotide = hit_query_seq[string_start+del_offset]
 
     ref_slice = create_sequence_slice(hit_ref_seq, string_start, 
-                                        ins_offset, 20)
+                                        ins_offset, 10)
 
     query_slice = create_sequence_slice(hit_query_seq, string_start,
-                                        del_offset, 20)
+                                        del_offset, 10)
 
     # Figure out if the hit is the same as a resistance
     # nuc that is known
@@ -673,22 +588,22 @@ class Genotype(object):
         # Validate all of the hits to make sure they are indeed good hits
 
         def at_edge(hit):
-            # The reason for calculating whether or not a hit
-            # is at the edge is in case you have references
-            # that are split over two contigs:
-            # 
-            #       contig1             contig2
-            #                <25bp> <25bp>
-            # --------------(------|------)-----------------
-            #                   ^      ^
-            #                   |      |
-            #    ends within here      starts within here
-            # 
-            # 
+            """
+            The reason for calculating whether or not a hit
+            is at the edge is in case you have references
+            that are split over two contigs:
+            
+                  contig1             contig2
+                           <25bp> <25bp>
+            --------------(------|------)-----------------
+                              ^      ^
+                              |      |
+               ends within here      starts within here
+            
+            """
 
             # Get the length of the contig
             contig_end = contig_sizes[hit.query_id]-1
-
             return hit.query_start <= 25 or contig_end-hit.query_stop <= 25
 
         best_hits = []
@@ -761,7 +676,7 @@ class Genotype(object):
                 coverage = float(len(filter(None, mask))) / float(
                     self._reference_len)
 
-                # Get the real coverage, incase calculated
+                # Get the real coverage, in case the calculated
                 # coverage is greater than 1
                 coverage = min(1.0, coverage) 
 

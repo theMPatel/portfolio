@@ -203,15 +203,11 @@ def fasta_iterator(fl_obj):
         entries from
     """
 
-    # Stores the sequences
     sequence_parts = []
-
-    # Key for a sequence
     key = ''
 
     for line in fl_obj:
 
-        # Get rid of the newline
         line = line.strip()
 
         if not line:
@@ -227,7 +223,6 @@ def fasta_iterator(fl_obj):
                 
                 yield (key, full_seqence)
 
-            # Start of the file
             key = line[1:].split()[0]
             sequence_parts = []
 
@@ -237,7 +232,6 @@ def fasta_iterator(fl_obj):
     if key:
         # The last sequence in the file
         full_seqence = ''.join(sequence_parts).upper()
-        
         yield (key, full_seqence)
 
 def parse_fasta(flname, rename=False):
@@ -297,7 +291,19 @@ def reverse_complement(sequence):
     return ''.join(reversed(translated))
 
 def check_mismatches(seq1, seq2):
-    mismatches = 0
+    """
+    Returns the number of mismatches between two
+    sequences. It only counts mismatches that are
+    resolvable, for example A -> M is a match since 
+    M could be A or C.
+
+    :param seq1: The first sequence to compare
+    :param seq2: The second sequence to compare
+    """
+
+    # If a sequence is longer than the other,
+    # count the extra size as a mismatch
+    mismatches = abs(len(seq1) - len(seq2))
 
     for nuc1, nuc2 in zip(seq1, seq2):
 

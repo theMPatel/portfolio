@@ -52,14 +52,6 @@ MutationTarget = namedtuple('MutationTarget', [
     'coding_gene'
 ])
 
-def sequence_parser(header, sequence, sep='_'):
-    return SequenceInfo(
-        locus = header,
-        allele = header,
-        accession = '',
-        sequence = sequence,
-        other = '')
-
 def main(settings, env):
 
     # Log the initial message
@@ -75,11 +67,11 @@ def main(settings, env):
     # Get the database path
     database_path = settings.database
 
-    # Log it
     log_message('Database path found at: {}'.format(
         database_path))
+    
+    log_message('Using query at: {}'.format(settings.query))
 
-    # Let's load it all
     log_message('Loading resistance sequences and associated'
         ' information')
 
@@ -111,60 +103,76 @@ def main(settings, env):
     log_message('Successfully ran mutation finder algorithm!')
 
     for result in final_results['extra']:
-        log_message("")
-        log_message("Gene: {}".format(result['locus']))
-        log_message("Match: {}".format(result['identity']*100))
-        log_message("Contig: {}".format(result['contig_id']))
-        log_message("Amino change: {}".format(result['aa_mutation']))
-        log_message("Resistance: {}".format(", ".join(result["resistance"])))
-        log_message("Reference")
-        list(map(log_message, result['alignment'].splitlines()))
-        log_message("Query")
+        log_result_nicely(result)
 
     return antibios_out
+
+def log_result_nicely(result, extra=-1):
+    """
+    Helper function for printing out results
+    to the console for portfolio uses
+
+    :param result: The result to print out
+    :param extra: Any extra tabs to add
+    """
+    log_message("", extra=extra)
+    log_message("Gene: {}".format(result['locus']), extra=extra)
+    log_message("Match: {}".format(result['identity']*100), extra=extra)
+    log_message("Contig: {}".format(result['contig_id']), extra=extra)
+    log_message("Amino change: {}".format(result['aa_mutation']), extra=extra)
+    log_message("Resistance: {}".format(", ".join(result["resistance"])), extra=extra)
+    log_message("Reference", extra=extra)
+
+    for algned_seq in result['alignment'].splitlines():
+        log_message(algned_seq, extra=extra)
+    
+    log_message("Query", extra=extra)
+
+def sequence_parser(header, sequence):
+    """
+    Function that serves to create SequenceInfo objects.
+    The intention was to allow for return of custom data 
+    containers so that a particular database instance is not
+    tightly coupled to a particular way of holding data.
+
+    :param header: The header of the record
+    :param sequence: The sequence
+    :param sepa
+    """
+    return SequenceInfo(
+        locus = header,
+        allele = header,
+        accession = '',
+        sequence = sequence,
+        other = '')
 
 class DbInfo(DbInfo):
 
     def load_database(self, dirpath, seq_parser, note_parser):
 
-        # Get all of the sequences in the directory
         for seq_file in os.listdir(dirpath):
-
-            # Create the file path
             file_path = os.path.join(dirpath, seq_file)
 
-            # Check to make sure that this is a valid fasta
-            # file
             if not is_fasta(file_path):
                 continue
 
-            # Load the sequences themselves from the files
             sequences = parse_fasta(file_path)
-
             for seq_id, sequence in sequences.items():
-                # Create a named tuple that contains the 
-                # header split out into its different
-                # attributes plus the sequence
                 seq_info = seq_parser(seq_id, sequence)
-
                 self._sequences[seq_id] = seq_info
 
         # Load notes if they exist
         file_path = os.path.join(dirpath, 'notes.txt')
 
         if os.path.exists(file_path):
-
             with open(file_path, 'r') as f:
-
                 for line in f:
-
                     line = line.strip()
-
+                    
                     if not line or line[0] == '#':
                         continue
-
+                    
                     notes_info = note_parser(line)
-
                     self._notes[notes_info.locus] = notes_info
 
     def load_extras(self):
@@ -180,9 +188,7 @@ class DbInfo(DbInfo):
             with open(file_path, 'r') as f:
 
                 for line in f:
-
                     line = line.strip()
-
                     self._rna_genes.add(line)
 
         file_path = os.path.join(self._dirpath, 'resistens-overview.txt')
@@ -195,24 +201,13 @@ class DbInfo(DbInfo):
             for line in f:
 
                 line = line.strip()
-
-                # Blank or comment line
                 if not line or line[0] == '#':
                     continue
 
                 parts = line.split('\t')
-
                 gene_id = parts[0]
                 gene_name = parts[1]
-
-                # You need to multiply this number by
-                # 3... codon duh
                 codon_position = int(parts[2])
-
-                # These don't need splitting per se
-                # however you might as well since
-                # you never know how the file will look
-                # in the future
                 reference_codon = parts[3].split(',')
                 reference_aa = parts[4].split(',')
                 resistance_aa = parts[5].split(',')
@@ -241,8 +236,23 @@ class DbInfo(DbInfo):
     def targets(self):
         return self._targets
 
+    @property
+    def rna_genes(self):
+        return self._rna_genes
+    
+
 def results_parser(dbinfo, interpretations):
-    # Filter out the ones that don't meet basic coverage requirements
+    """
+    A results parsing function that is specific for the mutation
+    finder module. It still needs to follow some basic conventions
+    like for example over arching results structure. However what
+    goes in the results is dependent on the module itself. Mutation
+    finder has different results than something searching for
+    specific genes i.e. 2-3 base pairs versus whole genes
+
+    :param dbinfo: The database object
+    :param interpretations: Results from the module
+    """
     final_results = {
         'results': {},
         'extra': []
@@ -255,15 +265,14 @@ def results_parser(dbinfo, interpretations):
 
     log_message('Determining optimal gene coverages...')
     for gene, mutation in interpretations.items():
-        if "16s" in gene.lower():
+        
+        if gene in dbinfo.rna_genes:
             continue
 
         for mutation_info in mutation:
 
             gene_name = gene + '@' + str(mutation_info['position'])
-
             final_results['results'][gene_name] = True
-
             hit = mutation_info['hit']
 
             hit_info = {
@@ -292,17 +301,15 @@ def results_parser(dbinfo, interpretations):
 
     
     for gene, mutation_targets in dbinfo.targets.items():
-
         for mutation_target in mutation_targets:
 
             gene_name = '{gene}@{location}'
-
             final_name = gene_name.format(
                 gene = mutation_target.gene_id,
                 location = mutation_target.codon_position
             )
-
-            final_results['results'][final_name] = final_results['results'].get(final_name, False)
+            final_results['results'][final_name] = \
+                final_results['results'].get(final_name, False)
 
             for r in mutation_target.resistance:
                 notes_out['results'][r] = notes_out['results'].get(r, False)

@@ -39,12 +39,12 @@ class TestFancyTools:
         dset = Disjointset(len(test_data))
 
         for left in range(dset.size//2):
-            right = -(left+1)+50
+            right = -(left+1)+size
 
             dset.merge(left, right)
 
         for left in range(dset.size//2):
-            right = -(left+1)+50
+            right = -(left+1)+size
 
             assert dset.get_parent(left) == dset.get_parent(right)
 

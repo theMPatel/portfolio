@@ -71,6 +71,50 @@ def check_nonempty_file(path):
     return os.path.exists(path) and \
             os.stat(path).st_size > 0
 
+def populate_syspath(directories):
+    """
+    This function will help us find any of the tools that we
+    installed through the setup.py script. It exists because
+    I don't want to permanently modify your own $PATH variable
+    
+    :param directories: The directories to recursively add to
+        the syspath
+    """
+
+    path_parts = set(os.environ["PATH"].split(os.pathsep))
+    # We can use shutil.which to get the correct binary we want
+    # if we ensure that the path is correct. Unfortunately, I
+    # didn't feel safe manipulating your path (esp if you're on
+    # windows) so am resorting to this.
+    for directory in directories:
+        for root, dirs, files in os.walk(directory):
+            path_parts.add(root)
+
+    os.environ["PATH"] = os.pathsep.join(path_parts)
+
+    return os.environ["PATH"]
+
+def find_directory_on_path(directory_name, path_string, sep=os.pathsep):
+    """
+    Takes in a properly formatted path string and searches for
+    a directory on the path by recursively walking it
+
+    :param directory_name: The name of the directory to look for
+    :param path_string: The path string to search on
+    :param sep: The separator in the path_string
+    :raises: ValueError
+    """
+
+    if not path_string:
+        raise ValueError("Path string is empty")
+
+    for top_dir in path_string.split(sep):
+        for root, _, _ in os.walk(top_dir):
+            if directory_name == os.path.basename(root):
+                return root
+
+    raise RuntimeError("Unable to find: {}".format(directory_name))
+
 # ############################ IMPORTANT ####################################
 
 # The below base_depth variable gets set at runtime (and it could

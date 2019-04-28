@@ -34,12 +34,13 @@ from tools.environment import (
     ResultWriter, log_message,
     log_progress, log_error,
     log_exception, log_algo_params,
-    get_stack_len, set_base_depth
+    get_stack_len, set_base_depth,
+    populate_syspath, find_directory_on_path
 )
 
 from genotyping import mutation_finder
 
-Settings = namedtuple("Settings", [
+MutationFinderSettings = namedtuple("Settings", [
     'query',
     'version',
     'database',
@@ -92,65 +93,73 @@ def parse_cmdline():
     #return the arguments object
     return args, remaining
 
-_tools_dirs = [
-    os.path.normpath(os.path.expanduser("~/.tools")),
-    os.path.normpath(os.path.expanduser("~/.bin")),
-    os.path.normpath(os.path.expanduser("~/.tmp"))
-]
-def populate_syspath(directories):
-    """
-    This function will help us find any of the tools that we
-    installed through the setup.py script. It exists because
-    I don't want to permanently modify your own $PATH variable
-    
-    :param directories: The directories to recursively add to
-        the syspath
-    """
-
-    path_parts = []
-    # We can use shutil.which to get the correct binary we want
-    # if we ensure that the path is correct. Unfortunately, I
-    # didn't feel safe manipulating your path (esp if you're on
-    # windows) so am resorting to this.
-    for directory in directories:
-        for root, dirs, files in os.walk(directory):
-            path_parts.append(root)
-
-    os.environ["PATH"] += os.pathsep + os.pathsep.join(path_parts)
-
-def main_throw_args(args, remaining, settings):
+def main_throw_args(args, remaining):
     # Actually calls the genotyping algorithm
-    
+
     env = Environment()
     env.setup(vars(args))
-
     initialize_logging(env.logdir)
     ResultWriter(env.resultsdir)
-
+    
     log_message('Initializing..')
+    
+    path = os.environ["PATH"]
+    database_dir = find_directory_on_path("pointfinder_db", path)
+    sequence_dir = find_directory_on_path("sequence_data", path)
+    ecoli_db_dir = os.path.join(database_dir, "escherichia_coli")
+    
+    base_settings = MutationFinderSettings(query="", version="1.0.0",
+                                            database=ecoli_db_dir,
+                                            percent_identity=0.9,
+                                            min_relative_coverage=0.6)
+
     log_message("Using temp directory: {}".format(env.tempdir))
     log_message("Using results directory: {}".format(env.resultsdir))
+    log_message("Using database: {}".format(database_dir))
+    log_message("Using sequences from: {}".format(sequence_dir))
     log_progress(0)
 
     # Set's the base depth for logging so that we can get tabbed log
     # files that mimic the execution flow of the program
     set_base_depth(-(get_stack_len()))
+
+    for file in os.listdir(sequence_dir):
+        query_path = os.path.join(sequence_dir, file)
+
+        settings = MutationFinderSettings(
+            query=query_path,
+
+            database=base_settings.database,
+            version=base_settings.version,
+            percent_identity=base_settings.percent_identity,
+            min_relative_coverage=base_settings.min_relative_coverage
+        )
     
-    # Actually, the below is a major refactor of the original
-    # project layout. Before we were actually dynamically importing
-    # the modules that a client wanted to run. This particular file
-    # served as the insertion point for any and all modules the client
-    # was aware it could run and which one in particular would come
-    # in as a cmdline argument. We would import that class dynamically
-    # and run it's main method.
-    mutation_finder.main(settings, env)
+        # Actually, the below is a major refactor of the original
+        # project layout. Before we were actually dynamically importing
+        # the modules that a client wanted to run. This particular file
+        # served as the insertion point for any and all modules the client
+        # was aware it could run and which one in particular would come
+        # in as a cmdline argument. We would import that class dynamically
+        # and run it's main method.
+        mutation_finder.main(settings, env)
+        log_message("")
         
     # And we are done!
     log_progress(100)
     log_message('Done running algorithm: {}!'.format(
         "Mutation Finder"))    
 
+_tools_dirs = [
+    os.path.normpath(os.path.expanduser("~/.tools")),
+    os.path.normpath(os.path.expanduser("~/.bin")),
+    os.path.normpath(os.path.expanduser("~/.tmp"))
+]
 def main_throw():
+    """
+    Staging grounds for the application. The intention is to
+    do some ancillary tasks prior to running the program.
+    """
         
     # Parse cmdline arguments
     args, remaining = parse_cmdline()
@@ -170,19 +179,13 @@ def main_throw():
     if os.path.exists(genotyper_settings_path):
         with open(genotyper_settings_path, 'r') as f:
             genotyper_settings = json.load(f)
-
-    settings = Settings(os.path.expanduser("~/Downloads/test_genome.fna"),
-                        "1.0.0",
-                        os.path.expanduser("~/Documents/github/pointfinder_db/escherichia_coli"),
-                        0.9,
-                        0.6)
     
     # Update the path to add all the directories that might have
     # our tools.
     populate_syspath(_tools_dirs)
 
     # Run the main program with arguments
-    main_throw_args(args, remaining, settings)
+    main_throw_args(args, remaining)
 
 def _main():
 
