@@ -23,13 +23,12 @@ from tools.align import (
 )
 
 from tools.tools import (
-    reverse_complement, codon_translation,
-    binary_search
+    reverse_complement, codon_translation
 )
 
 import os
 from itertools import combinations, product
-from tools.fancy_tools import Disjointset
+from tools.fancy_tools import Disjointset, binary_search
 from collections import defaultdict, namedtuple
 
 GenotypeRegion = namedtuple('GenotypeRegion', ['coverage', 'identity', 'locations'])

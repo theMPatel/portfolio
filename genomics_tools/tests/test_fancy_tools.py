@@ -11,6 +11,7 @@
 import pytest
 from genomics_tools.tools.fancy_tools import edit_distance
 from genomics_tools.tools.fancy_tools import Disjointset
+from genomics_tools.tools.fancy_tools import binary_search
 
 class TestFancyTools:
 
@@ -48,3 +49,14 @@ class TestFancyTools:
             assert dset.get_parent(left) == dset.get_parent(right)
 
         assert dset.get_parent(size//4) != dset.get_parent((size//4)+1)
+
+    @pytest.mark.parametrize(
+        "arr, target, expected", (
+            ([8,10,18,21,22], 19, 2),
+            ([0,1,2,3,4,5], 10, 5),
+            ([87,99,129,347,900], 1, -1)
+        )
+    )
+    def test_binary_search(self, arr, target, expected):
+        index = binary_search(arr, target, 0, len(arr)-1)
+        assert index == expected

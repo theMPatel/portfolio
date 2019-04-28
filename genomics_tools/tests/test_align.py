@@ -56,5 +56,4 @@ class TestAlign:
         f = io.StringIO(line)
 
         genotype_object = GenotypeResults().load_hits(f, 'blast')
-        
         assert len(genotype_object.hits) == 1

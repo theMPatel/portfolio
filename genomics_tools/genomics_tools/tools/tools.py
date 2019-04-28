@@ -30,11 +30,6 @@ from .environment import (
     log_error
 )
 
-_FWD = 'ATGCRYSWKMBDHVN'
-_REV = 'TACGYRSWMKVHDBN'
-_COMPLEMENT = str.maketrans(_FWD, _REV)
-_GZIP_START = b'1f8b'
-
 # Get the codons for any particular amino acid
 _AA_BACK_TRANSLATE = {
     'A' : ['GCT', 'GCC', 'GCA', 'GCG'],
@@ -99,6 +94,7 @@ for nuc, pairs in _NUC_SIBLINGS.items():
 def get_non_iupac(f_set):
     return _SET_TO_NON_ACTG.get(f_set, None)
 
+_GZIP_START = b'1f8b'
 def check_gzipped(file_path):
 
     # Read the first two bytes to see if it is the gzip
@@ -149,45 +145,14 @@ def get_all_file_exts(path):
 
     return real_root, exts
 
-def unzip_file(fl_in, fl_out):
-    # Assumes that the file is a gzipped
-    # file
-
-    # Open the in file
-    if not hasattr(fl_in, 'read'):
-        fl_in = gzip.open(fl_in, 'rb')
-
-    # Open the outfile
-    if not hasattr(fl_out, 'write'):
-        fl_out = open(fl_out, 'wb')
-
-    # If the files are already open
-    # it will jump to this step
-    shutil.copyfileobj(fl_in, fl_out)
-
-    # Close the files to be nice
-    fl_in.close()
-    fl_out.close()
-
-    # Make sure that the file is in proper dos2unix format:
-    dos2unix = ['dos2unix', None]
-
-    # If a file handle was passed, extract the file path
-    if hasattr(fl_out, 'write'):
-        dos2unix[1] = fl_out.name
-
-    else:
-        dos2unix[1] = fl_out
-
-    success = popen(dos2unix)
-
-    if success[0]:
-        raise RuntimeError('Error converting file to dos: {}\n{}\n'.format(
-            success[1], success[2]))
-
 _FASTAEXTS = set(['.fna', '.fasta', '.fsa'])
 def is_fasta(path):
-    # Check if the file is a fasta format
+    """
+    Checks to see if a particular path could be
+    pointing to a fasta file based on it's extension.
+
+    :param path: The path to the file
+    """
     if not path:
         return False
 
@@ -197,7 +162,13 @@ def is_fasta(path):
 
 _GENBANKEXTS = set(['.gb', '.gbk'])
 def is_genbank(path):
-    # Check if the file is a genbank format
+    """
+    Checks to see if a particular path could be
+    pointing to a genbank file based on it's
+    extension.
+
+    :param path: The path to the file
+    """
     if not path:
         return False
 
@@ -205,84 +176,106 @@ def is_genbank(path):
 
     return bool(set(exts) & _GENBANKEXTS)
 
-def fasta_iterator(flname):
-    # Files look like this:
-    #
-    # >fasta_id
-    # ACTGACTGACTGACTGACTGACTGACTG\n
-    # ACTGACTGACTGACTGACTGACTGACTG\n
-    # ACTGACTGACTGACTGACTGACTGACTG\n
-    # 
-    # Parse accordingly
+def fasta_iterator_path(path_to_file):
+    """
+    Interface to load a fasta file from an external
+    path.
 
-    with open(flname, 'r') as f:
-        # f is an interable
+    :param path_to_file: The path to load
+    :raises: OSError when the file does not exist
+    """
 
-        # Stores the sequences
-        sequence_parts = []
+    with open(path_to_file, 'r') as f:
+        yield from fasta_iterator(f)
 
-        # Key for a sequence
-        key = ''
+def fasta_iterator(fl_obj):
+    """
+    Files usually look like this:
+    
+    >fasta_id
+    ACTGACTGACTGACTGACTGACTGACTG\n
+    ACTGACTGACTGACTGACTGACTGACTG\n
+    ACTGACTGACTGACTGACTGACTGACTG\n
+    
+    Parse accordingly. 
+    
+    :param fl_obj: A file object to load fasta
+        entries from
+    """
 
-        for line in f:
+    # Stores the sequences
+    sequence_parts = []
 
-            # Get rid of the newline
-            line = line.strip()
+    # Key for a sequence
+    key = ''
 
-            # Empty line
-            if not line:
-                continue
+    for line in fl_obj:
 
-            if line[0] == '>':
-                if key:
-                    # Start of a new fasta record
-                    # return the previous record
-                    
-                    # join the sequence
-                    full_seqence = ''.join(sequence_parts).upper()
-                    
-                    yield (key, full_seqence)
+        # Get rid of the newline
+        line = line.strip()
 
-                # Start of the file
-                key = line[1:].split()[0]
-                sequence_parts = []
+        if not line:
+            continue
 
-            else:
-                sequence_parts.append(line)
+        if line[0] == '>':
+            if key:
+                # Start of a new fasta record
+                # return the previous record
+                
+                # join the sequence
+                full_seqence = ''.join(sequence_parts).upper()
+                
+                yield (key, full_seqence)
 
-        if key:
-            # The last sequence in the file
-            full_seqence = ''.join(sequence_parts).upper()
-            
-            yield (key, full_seqence)
+            # Start of the file
+            key = line[1:].split()[0]
+            sequence_parts = []
+
+        else:
+            sequence_parts.append(line)
+
+    if key:
+        # The last sequence in the file
+        full_seqence = ''.join(sequence_parts).upper()
+        
+        yield (key, full_seqence)
 
 def parse_fasta(flname, rename=False):
+    """
+    Function provides an interface to parse
+    a fasta file and optionally provide a
+    way to rename the headers if requested
+
+    :param flname: The path to the file
+    :param rename: Whether to rename the header lines
+    """
     
     if is_fasta(flname):
-
         fasta_sequences = {}
 
         if rename:
-
-            for i, (name, sequence) in enumerate(fasta_iterator(flname),1):
+            for i, (name, sequence) in enumerate(
+                    fasta_iterator_path(flname),1):
 
                 new_name = 'contig_' + str(i)
-
                 fasta_sequences[new_name] = sequence
 
-            return fasta_sequences
-
         else:
+            fasta_sequences.update(
+                fasta_iterator_path(flname))
 
-            fasta_sequences.update(fasta_iterator(flname))
+        return fasta_sequences
 
-            return fasta_sequences
-
-    else:
-        raise RuntimeError('Requested file path is not of type fasta')
+    raise RuntimeError('Requested file path is not of type fasta')
 
 def codon_translation(codon):
-    # Translates the codon that was requested
+    """
+    Translates the codon that was requested to its
+    amnio counterpart
+
+    :param codon: The 3 letter DNA sequence to translate
+    """
+
     if len(codon) != 3:
         raise ValueError('Cannot translate a codon: {} of '
             'non-standard size: {}'.format(
@@ -290,38 +283,18 @@ def codon_translation(codon):
 
     return _AA_TRANSLATE.get(codon, 'X')
 
+_FWD = 'ATGCRYSWKMBDHVN'
+_REV = 'TACGYRSWMKVHDBN'
+_COMPLEMENT = str.maketrans(_FWD, _REV)
 def reverse_complement(sequence):
-    # Reverses the sequence at hand
+    """
+    Returns the reverse complement of a DNA
+    sequence.
+
+    :param sequence: The sequence to translate
+    """
     translated = sequence.translate(_COMPLEMENT)
     return ''.join(reversed(translated))
-
-def binary_search(arr, value, lo, hi):
-    # Use this function to do a binary search of your list.
-    # This works only on a list of non-duplicates, which is to
-    # say that if you have duplicates, you will get the index
-    # for only one of them. It should be easy enough for you
-    # to search around these values *if* you need to.
-    # The purpose of this function is to find gap indices
-    # for which there can be no duplicates so we should be fine.
-    # Returns:
-    #   -Either the index of the search value ***OR***
-    #   -The index of the largest element
-    #    smaller than the requested search value
-    #   - If nothing was found then -1 is returned
-
-    if lo > hi:
-        return hi
-
-    mid = (hi+lo) // 2
-
-    if value == arr[mid]:
-        return mid
-
-    elif value < arr[mid]:
-        return binary_search(arr, value, lo, mid-1)
-
-    else:
-        return binary_search(arr, value, mid+1, hi)
 
 def check_mismatches(seq1, seq2):
     mismatches = 0

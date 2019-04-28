@@ -50,6 +50,39 @@ class Disjointset(object):
     @property
     def size(self):
         return self._size
+
+def binary_search(arr, value, lo, hi):
+    """
+    Use this function to do a binary search of your list.
+    This works only on a list of non-duplicates, which is to
+    say that if you have duplicates, you will get the index
+    for only one of them. 
+
+    Returns:
+      - The index of the search value
+      - The index of the largest element
+            smaller than the requested search value
+      - If nothing was found then -1 is returned
+    
+    :param arr: The array to search
+    :param value: Desired value
+    :param lo: Lower index bound
+    :param hi: Higher index bound
+    """
+
+    if lo > hi:
+        return hi
+
+    mid = (hi+lo) // 2
+
+    if value == arr[mid]:
+        return mid
+
+    elif value < arr[mid]:
+        return binary_search(arr, value, lo, mid-1)
+
+    else:
+        return binary_search(arr, value, mid+1, hi)
         
 def edit_distance(string_a, string_b, matrix=False):
     """
