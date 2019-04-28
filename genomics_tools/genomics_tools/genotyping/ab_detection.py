@@ -55,7 +55,7 @@ def presence_detector(sequence_database, query_path, cached_query, percent_ident
 
     log_message('Creating blast database...')
 
-    create_blastdb(reference_path, blast_db_path, env)
+    create_blastdb(reference_path, blast_db_path)
 
     log_message('Successfully created blast database!')
 

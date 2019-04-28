@@ -67,6 +67,7 @@ finally:
     from setuptools import setup
     from setuptools.command.develop import develop
     from setuptools.command.install import install
+    from setuptools.command.test import test as TestCommand
 
 def prompt_continue(message=None):
 
@@ -107,29 +108,29 @@ _tools_dirs = [
 
 final_ncbi_foldername = "ncbi_blast"
 
-def get_discriminator_string_by_platform():
+def get_discriminator_string_by_platform(plaform):
     """
     This is specifically for the NCBI tools since
     they have the OS a particular package was intended
     for in the filename.
     """
 
-    if "linux" in sys.platform:
+    if "linux" in platform:
         return "linux"
 
-    elif "darwin" in sys.platform:
+    elif "darwin" in platform:
         return "macosx"
 
-    elif "win" in sys.platform:
+    elif "win" in platform:
         return "win"
 
     raise ValueError("I don't know what platform this is: {}"
-        .format(sys.platform))
+        .format(platform))
 
-def populate_syspath():
+def populate_syspath(directories):
     """
-    This function will help us find any of the tools that we
-    installed through the setup.py script.
+    This function will populate the sys path with the directories
+    and sub directories from a list of directories.
     """
 
     path_parts = []
@@ -137,43 +138,80 @@ def populate_syspath():
     # if we ensure that the path is correct. Unfortunately, I
     # didn't feel safe manipulating your path (esp if you're on
     # windows) so am resorting to this.
-    for directory in _tools_dirs:
+    for directory in directories:
         for root, dirs, files in os.walk(directory):
             path_parts.append(root)
 
     os.environ["PATH"] += os.pathsep + os.pathsep.join(path_parts)
 
-def verify_download_md5(downloaded_asset):
+def parse_md5_data(hash_data):
     """
-    Validates the downloaded asset. Assumes that the
-    downloaded file has another file with an extra
-    md5 extension that contains the digest information.
-    """
-    log.info("Verifying: " + downloaded_asset)
-    md5_file = downloaded_asset+".md5"
-    
-    if not os.path.exists(md5_file) or \
-        not os.path.exists(downloaded_asset):
-        return False
+    Usually md5 data usually consists of the hash followed by the
+    filename, like so:
 
-    with open(md5_file, "r") as f:
-        digest = f.read().strip()
-        digest = digest.split()[0]
+    a982lk3j09aosilejk3 some_file_with_integrity
+
+    This function returns back the hash from the data
+    """
+
+    if not hash_data:
+        raise ValueError("MD5 data cannot be empty")
+
+    hash_info = hash_data.split()
+
+    if len(hash_info) != 2:
+        raise ValueError("Invalid hash data")
+
+    return hash_info[0]
+
+def parse_md5_file(path_to_file):
+    """
+    Reads in a md5 file and returns back the hash data
+
+    :param path_to_file: The path to the file you want to
+        read in.
+    """
+
+    if not os.path.exists(path_to_file):
+        raise OSError("Path to MD5 file does not exist!")
+
+    with open(path_to_file, 'r') as f:
+        return parse_md5_data(f.read())
+
+def verify_download_md5(file, hash_data):
+    """
+    Verifies a that a file matches the hash_data provided.
+
+    :param file: The path to the file to be loaded
+    :param hash_data: The actual hash data the file should match
+    """
+    log.info("Verifying: " + file)
+    
+    if not os.path.exists(file):
+        raise OSError("Path {} does not exist".format(file))
 
     md5_digest = hashlib.md5()
-    with open(downloaded_asset, 'rb') as f:
+    with open(file, 'rb') as f:
 
         for block in chunked_file_reader(f):
             md5_digest.update(block)
 
-    return md5_digest.hexdigest() == digest
+    return md5_digest.hexdigest() == hash_data
 
-def untar_to_directory(source_tar, tarfile_final_path):
+def untar_contents_to_dir(source_tar, tarfile_final_path):
     """
-    Untars the _contents_ of a tar file to a directory, in
-    the case that you already have a directory made. This
-    functionality is similar to the -C flag you can pass
-    to tar on the command-line
+    Untars the _contents_ of a tar file to a directory. This means
+    that if your tar file looks like:
+    some_folder
+    |__ dir_1
+    |__ dir_2
+    |__ dir_3
+
+    The tarfile_final_path will not contain some_folder, but rather
+    the contents of some_folder.
+
+    :param source_tar: The source tar file
+    :param tarfile_final_path: The directory to unpack to
     """
 
     if not os.path.exists(source_tar):
@@ -202,6 +240,12 @@ def fetch_ncbi_tools(tarfile_final_path, retry_count=0):
     determining the correct package based on OS and downloading
     both the tar and the md5. This is all assuming you're using
     a x64 OS (sorry if that's not the case)
+
+    :param tarfile_final_path: The final resting place for
+        these tools
+
+    :param retry_count: The current retry count in case the download
+        from NCBI fails
     """
     actual_tools_needed = ['makeblastdb', 'blastn']
     
@@ -236,19 +280,16 @@ def fetch_ncbi_tools(tarfile_final_path, retry_count=0):
         available_versions = [file for file in ftp_conn.nlst() if \
                                 file.endswith("tar.gz") and "src" not in file]
 
-        search_string = get_discriminator_string_by_platform()
+        search_string = get_discriminator_string_by_platform(sys.platform)
 
         package = next(file for file in available_versions \
                         if search_string in file)
 
         tar_file_path = os.path.join(tempdir, package)
-        
-        mapping = {
-                    package: os.path.join(tempdir, package),
-                    package+".md5": os.path.join(tempdir, package+'.md5')
-                }
+        files = [package, package+".md5"]
 
-        for file, path in mapping.items():
+        for i, file in enumerate(files):
+            path = os.path.join(tempdir, file)
 
             with open(path, "wb") as handle:
                 downloader = functools.partial(download_and_write,
@@ -259,14 +300,22 @@ def fetch_ncbi_tools(tarfile_final_path, retry_count=0):
 
                 ftp_conn.retrbinary("RETR "+file, downloader)
 
-    if not verify_download_md5(mapping[package]):
+            files[i] = path
+
+    local_file = files[0]
+    local_file_md5 = files[1]
+    md5_data = parse_md5_file(local_file_md5)
+
+    if not verify_download_md5(local_file, md5_data):
         log.error("Download failed md5 verification, will try a total of "
             " 3 times before quitting.")
 
-        time.sleep(2)
+        # Back off factor of 2
+        time.sleep(2*(retry_count+1))
+
         return fetch_ncbi_tools(tarfile_final_path, retry_count=retry_count+1)
 
-    untar_to_directory(tar_file_path, tarfile_final_path)
+    untar_contents_to_dir(tar_file_path, tarfile_final_path)
     tempdir_obj.cleanup()
 
 def git_checkout(branch):
@@ -355,7 +404,7 @@ def retrieve_necessary_deps():
     :raises ValueError: If I can't figure out a good place to put
         these tools
     """
-    populate_syspath()
+    populate_syspath(_tools_dirs)
 
     chosen_tools_dir = ''
     for path in _tools_dirs:
@@ -428,6 +477,20 @@ class PostInstallCommand(install):
         install.run(self)
         retrieve_necessary_deps()
 
+class PyTest(TestCommand):
+    user_options = [('pytest-args=', 'a', "Arguments to pass into py.test")]
+
+    def initialize_options(self):
+        TestCommand.initialize_options(self)
+        self.pytest_args = ""
+
+    def run_tests(self):
+        import shlex
+        import pytest
+
+        errno = pytest.main(shlex.split(self.pytest_args))
+        sys.exit(errno)
+
 __version__ = '0.0.1-dev'
 __author__ = 'Milan Patel'
 __title__ = 'genomics_tools'
@@ -444,6 +507,10 @@ requires = [
     'tqdm>=4.29.0',
 ]
 
+test_requires = [
+    "pytest>=4.4.1"
+]
+
 setup(
         name=__title__,
         version=__version__,
@@ -453,8 +520,10 @@ setup(
         install_requires=requires,
         cmdclass={
             "develop" : PostDevelopCommand,
-            "install" : PostInstallCommand
+            "install" : PostInstallCommand,
+            "test" : PyTest
         },
+        test_requires=test_requires,
         entry_points={
             'console_scripts': [
                 'genomics_tools=genomics_tools.__main__:_main'

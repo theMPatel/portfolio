@@ -29,14 +29,18 @@ BLASTSettings = namedtuple('BLASTSettings', [
 
 _platform = os.name
 
-def create_blastdb(fastaflname, dbpath, env):
+def create_blastdb(fastaflname, dbpath):
+    """
+    Creates a blast db which is a proprietary indexed
+    file that can be later used to do sequence alignment
 
-    # Create the directories if they don't exist
+    :param fastaflname: The path to the source file name
+    :param dbpath: The final path for the constructed db
+    :pram env: The environment object
+    """
+
     valid_dir(os.path.dirname(dbpath))
 
-    # This is where the tools should be
-    # if that is not the case, either fix it in the filesystem
-    # or fix the path below, whichever is easier
     makeblastdb_name = 'makeblastdb'
 
     if _platform == 'nt':
@@ -44,7 +48,6 @@ def create_blastdb(fastaflname, dbpath, env):
 
     makeblastdb = shutil.which(makeblastdb_name)
 
-    # Check to make sure the tool exists
     if makeblastdb is None:
         raise RuntimeError('Missing ncbi->makeblastdb')
 
@@ -53,7 +56,6 @@ def create_blastdb(fastaflname, dbpath, env):
         raise RuntimeError('Missing fastafile for blastdb creation'
             ' path given: {}'.format(fastaflname))
 
-    # These are the arguments for blast
     blastdb_args = [
 
         makeblastdb,
@@ -62,19 +64,12 @@ def create_blastdb(fastaflname, dbpath, env):
         "-out", dbpath
     ]
 
-    # Tell the user that you are doing this
     log_message('BLASTDatabase: Running command: {}'.format(
         ' '.join(blastdb_args)))
 
     # Call the subprocess
     child = sp.Popen(blastdb_args, stdout=sp.PIPE, stderr=sp.PIPE)
-
-    # Check the output of BLASTMakeDB
-    # This will wait for the subprocess to finish before
-    # continuing
     stdout, stderr = child.communicate()
-
-    # Check the exit code:
     exit_code = child.returncode
     
     # Log what we got out of the blastn
@@ -176,7 +171,7 @@ def align_blast_nodb(query, subject, settings, env):
     log_message('Done running BLASTn!')
 
     # Return the results as a GenotypeResults object
-    return GenotypeResults(outputfile, settings, 'blast')
+    return GenotypeResults().load_hits(outputfile, 'blast')
 
 def align_blast(query, blastdb, settings, env):
 
@@ -258,7 +253,7 @@ def align_blast(query, blastdb, settings, env):
     log_message('Done running BLASTn!')
 
     # Return the results as a GenotypeResults object
-    return GenotypeResults(outputfile, settings, 'blast')
+    return GenotypeResults().load_hits(outputfile, 'blast')
 
 class GenotypeHit(object):
 
@@ -379,8 +374,6 @@ class GenotypeHit(object):
             hit._reference_start, hit._reference_stop = \
                 hit._reference_stop, hit._reference_start
 
-        # Change the percentages into decimals,
-        # because why not
         hit.identity = hit.identity / 100.
 
         # Make sure to avoid a divide by zero error
@@ -405,12 +398,8 @@ class GenotypeResults(object):
         'mummer': GenotypeHit.from_mummer
     }
 
-    def __init__(self, filename, settings, aligner='blast'):
+    def __init__(self):
         self._hits = []
-        self._aligner = aligner
-        self._settings = settings
-
-        self.load_hits(filename, settings, aligner)
 
     def read_file(self, flobj):
 
@@ -435,20 +424,13 @@ class GenotypeResults(object):
 
             yield line
 
-    def load_hits(self, filename, settings, aligner):
+    def load_hits(self, filename, aligner):
 
         if aligner in GenotypeResults.hit_handlers:
             handler = GenotypeResults.hit_handlers[aligner]
         
         else:
             raise RuntimeError('Requested non-existent aligner')
-
-        # Make sure the settings provided has the correct settings in it
-        required_settings = ['relative_minlen', 'absolute_minlen']
-
-        if not all(hasattr(settings, x) for x in required_settings):
-            raise RuntimeError('Missing settings for handling'
-                ' genotyping hits')
 
         # If we are given a file path rather than a file obj
         if isinstance(filename, str):
@@ -458,7 +440,6 @@ class GenotypeResults(object):
                 with open(filename, 'r') as f:
 
                     for line in self.read_file(f):
-
                         self._hits.append(handler(line))
 
             else:
@@ -471,6 +452,8 @@ class GenotypeResults(object):
             for line in self.read_file(filename):
 
                 self._hits.append(handler(line))
+
+        return self
 
     @property
     def hits(self):

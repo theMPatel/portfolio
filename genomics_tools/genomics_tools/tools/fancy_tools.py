@@ -47,7 +47,10 @@ class Disjointset(object):
             if self._rank[real_destination] == self._rank[real_source]:
                 self._rank[real_source] += 1
 
-
+    @property
+    def size(self):
+        return self._size
+        
 def edit_distance(string_a, string_b, matrix=False):
     """
     Returns the minimum edit distance between two strings.

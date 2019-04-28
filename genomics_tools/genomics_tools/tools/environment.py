@@ -24,7 +24,6 @@ import os
 import shutil
 import tempfile
 
-from .config import Settings
 from . import deprecated
 
 __all__ = [

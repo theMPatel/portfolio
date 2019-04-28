@@ -21,7 +21,7 @@ import shutil
 import subprocess as sp
 import sys
 
-from collections import OrderedDict, namedtuple
+from collections import namedtuple
 from itertools import combinations
 
 from .environment import (
@@ -40,25 +40,25 @@ _GZIP_START = b'1f8b'
 # Get the codons for any particular amino acid
 _AA_BACK_TRANSLATE = {
     'A' : ['GCT', 'GCC', 'GCA', 'GCG'],
-    'L' : ['TTA', 'TTG', 'CTT', 'CTC', 'CTA', 'CTG'],
-    'R' : ['CGT', 'CGC', 'CGA', 'CGG', 'AGA', 'AGG'],   
-    'K' : ['AAA', 'AAG'],
-    'N' : ['AAT', 'AAC'],
-    'M' : ['ATG'],
-    'D' : ['GAT', 'GAC'],
-    'F' : ['TTT', 'TTC'],
     'C' : ['TGT', 'TGC'],
+    'D' : ['GAT', 'GAC'],
+    'E' : ['GAA', 'GAG'],
+    'F' : ['TTT', 'TTC'],
+    'G' : ['GGT', 'GGC', 'GGA', 'GGG'],
+    'H' : ['CAT', 'CAC'],
+    'I' : ['ATT', 'ATC', 'ATA'],
+    'K' : ['AAA', 'AAG'],
+    'L' : ['TTA', 'TTG', 'CTT', 'CTC', 'CTA', 'CTG'],
+    'M' : ['ATG'],
+    'N' : ['AAT', 'AAC'],
     'P' : ['CCT', 'CCC', 'CCA', 'CCG'],
     'Q' : ['CAA', 'CAG'],
+    'R' : ['CGT', 'CGC', 'CGA', 'CGG', 'AGA', 'AGG'],   
     'S' : ['TCT', 'TCC', 'TCA', 'TCG', 'AGT', 'AGC'],
-    'E' : ['GAA', 'GAG'],
     'T' : ['ACT', 'ACC', 'ACA', 'ACG'],
-    'G' : ['GGT', 'GGC', 'GGA', 'GGG'],
+    'V' : ['GTT', 'GTC', 'GTA', 'GTG'],
     'W' : ['TGG'],
-    'H' : ['CAT', 'CAC'],
     'Y' : ['TAT', 'TAC'],
-    'I' : ['ATT', 'ATC', 'ATA'],
-    'V' : ['GTT', 'GTC', 'GTA', 'GTG']
 }
 
 # Get the amino acid for any particular codon
@@ -70,12 +70,12 @@ for amino, codons in _AA_BACK_TRANSLATE.items():
         _AA_TRANSLATE[codon] = amino
 
 # All potential sequence based nucleotides
-# and their parings
+# and their pairings
 _NUC_SIBLINGS = {
    'A': "A",
    'C': "C",
    'G': "G",
-   'T': "T",        
+   'T': "T",
    'R': "AG",
    'Y': "CT",
    'S': "GC",
@@ -94,91 +94,12 @@ _SET_TO_NON_ACTG = {}
 # Convert values to set for easy membership
 # checking
 for nuc, pairs in _NUC_SIBLINGS.items():
-    _NUC_SIBLINGS[nuc] = frozenset(pairs)
-    _SET_TO_NON_ACTG.__setitem__(_NUC_SIBLINGS.get(nuc), nuc)
+    fset = frozenset(pairs)
+    _NUC_SIBLINGS[nuc] = fset
+    _SET_TO_NON_ACTG[_NUC_SIBLINGS.get(nuc)] = nuc
 
 def get_non_iupac(f_set):
     return _SET_TO_NON_ACTG.get(f_set, None)
-
-def add_cmdline_args(executable_name, cmd_args, args):
-    """
-    Modifies a list used for commandline args in place while
-    doing some basic validations
-    """
-
-    if not isinstance(cmd_args, list):
-        raise TypeError('Commandline args destination '
-                        'must be of type list, got'
-                        ' {} instead'.format(type(cmd_args))
-                        )
-
-    if not isinstance(args, (tuple, list)):
-        raise TypeError('Args to add must be in list or tuple format'
-                        ' got {} instead'.format(type(args))
-                        )
-    for arg in args:
-
-        if not isinstance(arg, str) or not \
-            arg.startswith('-'):
-
-            log_warning('Invalid argument provided for {}:'
-                        ' {}, skipping..'.format(executable_name, arg))
-            continue
-
-        cmd_args.append(arg)
-
-def add_cmdline_kwargs(executable_name, cmd_args, kwargs):
-    """
-    Modifies a list used for commandline args in place while
-    doing some basic validations
-    """
-
-    if not isinstance(cmd_args, list):
-        raise TypeError('Commandline args destination '
-                        'must be of type list, got'
-                        ' {} instead'.format(type(cmd_args))
-                        )
-
-    if not isinstance(kwargs, dict):
-        raise TypeError('Key word args to add must be in dict format'
-                        ' got {} instead'.format(type(kwargs))
-                        )
-
-    for arg, value in kwargs.items():
-        if not isinstance(arg, str) or not \
-            arg.startswith('-'):
-
-            log_warning('Invalid argument provided for {}:'
-                        ' {} -. {}, skipping..'.format(
-                                                    executable_name, 
-                                                    arg,
-                                                    value
-                                                )
-                        )
-
-            continue
-
-        cmd_args.extend([arg, str(value)])
-
-def popen(args, stdout=None, stderr=None, cwd=None, shell=False):
-
-    if not isinstance(args, list) or not args:
-        raise RuntimeError('Provided arguments must be of type list')
-
-    if not stderr:
-        stderr = sp.PIPE
-
-    if not stdout:
-        stdout = sp.PIPE
-
-    if os.path.isfile(args[0]):
-        args[0] = full_path(args[0])
-
-    child = sp.Popen(args, stdout=stdout, stderr=stderr, cwd=cwd, shell=shell)
-
-    out, err = child.communicate()
-
-    return child.returncode, out, err
 
 def check_gzipped(file_path):
 
@@ -190,8 +111,17 @@ def check_gzipped(file_path):
     return binascii.hexlify(head) == _GZIP_START
 
 def check_b64encoded(string):
+    """
+    Determines whether a string is base64 encoded or not.
+    A base64 encoded string includes [a-zA-Z0-9] and
+    +, / and = for padding. Another thing to note, if the
+    length of your string modulo 4 is zero, and it only
+    contains the characters above, it is base64 encoded.
+    
+    :param string: The string to check if base64 encoded.
+    """
     try:
-        base64.decodestring(string)
+        base64.b64decode(string)
     
     except binascii.Error:
         return False
@@ -200,6 +130,15 @@ def check_b64encoded(string):
         return True
 
 def get_all_file_exts(path):
+    """
+    Returns back all the file extensions of a file.
+    Sometimes files like some_file.tar.gz have multiple
+    extensions and it might be useful to check a file
+    has a particular extension
+
+    :param path: The string path to get all extensions
+    """
+    
     root, ext = os.path.splitext(path)
 
     if not ext:
