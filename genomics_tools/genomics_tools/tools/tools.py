@@ -30,8 +30,6 @@ from .environment import (
     log_error
 )
 
-_FASTAEXTS = ['.fna', '.fasta', '.fsa']
-_GENBANKEXTS = ['.gb', '.gbk']
 _FWD = 'ATGCRYSWKMBDHVN'
 _REV = 'TACGYRSWMKVHDBN'
 _COMPLEMENT = str.maketrans(_FWD, _REV)
@@ -151,56 +149,6 @@ def get_all_file_exts(path):
 
     return real_root, exts
 
-def process_seq_file(file_path, load=True):
-
-    log_message('Checking provided '
-                'sequence file: {}'.format(file_path))
-
-    if not os.path.exists(file_path):
-        raise RuntimeError('No file exists for path: {}'
-                            ''.format(str(path)))
-
-    out_path = file_path
-
-    # First check to see if the data is gzipped:
-    if check_gzipped(file_path) or file_path.endswith('.gz'):
-
-        log_message('Found gzipped file!', extra=1)
-
-        root, exts = get_all_file_exts(file_path)
-
-        if exts and exts[0] != '.gz':
-            out_path = root + exts[0]
-        else:
-            out_path = root + '.fasta'
-
-        log_message('Unzipping...', extra=1)
-        
-        try:
-            unzip_file(file_path, out_path)
-
-        except:
-            log_error('Unable to unzip query file!')
-            raise
-
-    if load:
-        return out_path, parse_fasta(out_path)
-
-    else:
-        return out_path, None
-
-def process_read_files(reads, load=False):
-
-    if not isinstance(reads, list):
-        raise TypeError('Read files must be provided as a'
-            ' list of paths')
-
-    to_return = []
-    for read in reads:
-        to_return.append(process_seq_file(read, load=load))
-
-    return to_return
-
 def unzip_file(fl_in, fl_out):
     # Assumes that the file is a gzipped
     # file
@@ -237,23 +185,25 @@ def unzip_file(fl_in, fl_out):
         raise RuntimeError('Error converting file to dos: {}\n{}\n'.format(
             success[1], success[2]))
 
+_FASTAEXTS = set(['.fna', '.fasta', '.fsa'])
 def is_fasta(path):
     # Check if the file is a fasta format
-    if not os.path.exists(path):
+    if not path:
         return False
 
-    file_extension = os.path.splitext(path)[1]
+    root, exts = get_all_file_exts(path)
 
-    return file_extension in _FASTAEXTS
+    return bool(set(exts) & _FASTAEXTS)
 
+_GENBANKEXTS = set(['.gb', '.gbk'])
 def is_genbank(path):
     # Check if the file is a genbank format
-    if not os.path.exists(path):
+    if not path:
         return False
 
-    file_extension = os.path.splitext(path)[1]
+    root, exts = get_all_file_exts(path)
 
-    return file_extension in _GENBANKEXTS
+    return bool(set(exts) & _GENBANKEXTS)
 
 def fasta_iterator(flname):
     # Files look like this:

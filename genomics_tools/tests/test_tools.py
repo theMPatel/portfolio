@@ -13,6 +13,7 @@ import pytest
 from genomics_tools.tools.tools import get_all_file_exts
 from genomics_tools.tools.tools import get_non_iupac
 from genomics_tools.tools.tools import check_b64encoded
+from genomics_tools.tools.tools import is_fasta
 
 class TestGenericTools:
 
@@ -27,7 +28,6 @@ class TestGenericTools:
     def test_get_all_extensions(self, path, count):
         root, exts = get_all_file_exts(path)
         assert len(exts) == count
-
 
     @pytest.mark.parametrize(
         "nucleotides, iupac_code",(
@@ -70,3 +70,14 @@ class TestGenericTools:
         is_encoded = check_b64encoded(string)
         assert is_encoded == expected
 
+    @pytest.mark.parametrize(
+        "string, expected", (
+            ("test.fna", True),
+            ("test.fna.fasta", True),
+            ("test.fsa", True),
+            ("test.fsa.gz", True),
+            ("test.tar.gz", False)
+        )
+    )
+    def test_check_fast_filename(self, string, expected):
+        assert is_fasta(string) == expected

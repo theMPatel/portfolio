@@ -92,24 +92,27 @@ def parse_cmdline():
     #return the arguments object
     return args, remaining
 
-def populate_syspath():
+_tools_dirs = [
+    os.path.normpath(os.path.expanduser("~/.tools")),
+    os.path.normpath(os.path.expanduser("~/.bin")),
+    os.path.normpath(os.path.expanduser("~/.tmp"))
+]
+def populate_syspath(directories):
     """
     This function will help us find any of the tools that we
     installed through the setup.py script. It exists because
     I don't want to permanently modify your own $PATH variable
+    
+    :param directories: The directories to recursively add to
+        the syspath
     """
-    _tools_dirs = [
-        os.path.normpath(os.path.expanduser("~/.tools")),
-        os.path.normpath(os.path.expanduser("~/.bin")),
-        os.path.normpath(os.path.expanduser("~/.tmp"))
-        ]
 
     path_parts = []
     # We can use shutil.which to get the correct binary we want
     # if we ensure that the path is correct. Unfortunately, I
     # didn't feel safe manipulating your path (esp if you're on
     # windows) so am resorting to this.
-    for directory in _tools_dirs:
+    for directory in directories:
         for root, dirs, files in os.walk(directory):
             path_parts.append(root)
 
@@ -176,7 +179,7 @@ def main_throw():
     
     # Update the path to add all the directories that might have
     # our tools.
-    populate_syspath()
+    populate_syspath(_tools_dirs)
 
     # Run the main program with arguments
     main_throw_args(args, remaining, settings)
