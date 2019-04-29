@@ -39,6 +39,7 @@ import os
 import json
 from functools import partial
 from collections import namedtuple, defaultdict
+import uuid
 
 MutationTarget = namedtuple('MutationTarget', [
     'gene_id', 
@@ -97,7 +98,7 @@ def main(settings, env):
         results, f=results_parser)
 
     log_message('Writing results out...', extra=1)
-    write_results('resistance.point.json', json.dumps(final_results))
+    write_results(str(uuid.uuid4()) + '.json', json.dumps(final_results))
 
     # Success!
     log_message('Successfully ran mutation finder algorithm!')

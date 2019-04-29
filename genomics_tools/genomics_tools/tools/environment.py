@@ -71,6 +71,20 @@ def check_nonempty_file(path):
     return os.path.exists(path) and \
             os.stat(path).st_size > 0
 
+def clear_directory(path):
+    """
+    Clears the contents of the path.
+
+    :param path: The path to the directory to clear.
+    :raises: OSError
+    """
+
+    if not os.path.isdir(path):
+        raise OSError("{} is not a directory".format(path))
+
+    shutil.rmtree(path)
+    os.makedirs(path)
+    
 def populate_syspath(directories):
     """
     This function will help us find any of the tools that we
@@ -344,7 +358,6 @@ class Environment(object):
         return path
 
     def copy(self):
-
         # Use this to dynamically create a new environment class
         # you can use this to change the paths for specific modules
         # like making a specific tmp directory for each

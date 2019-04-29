@@ -55,6 +55,7 @@ def install_package(package):
     if hasattr(pip, 'main'):
         pip.main(['install', package])
     else:
+        import pip._internal
         pip._internal.main(['install', package])
 
 try:
@@ -427,6 +428,10 @@ def fetch_sequence_data(tools_dir):
     to_retrieve = [
         ("genomes/all/GCF/000/299/455/GCF_000299455.1_ASM29945v1",
             "GCF_000299455.1_ASM29945v1_genomic.fna.gz"),
+        ("/genomes/all/GCA/003/691/425/GCA_003691425.1_ASM369142v1",
+            "GCA_003691425.1_ASM369142v1_genomic.fna.gz"),
+        ("/genomes/all/GCF/004/368/015/GCF_004368015.1_ASM436801v1",
+            "GCF_004368015.1_ASM436801v1_genomic.fna.gz")
     ]
 
     sequence_final_path = os.path.join(tools_dir,
@@ -514,7 +519,7 @@ def retrieve_necessary_deps():
                 chosen_tools_dir = path
                 break
 
-            counts.append((len(os.listdir(path), path)))
+            counts.append([len(os.listdir(path)), path])
 
         else:
             counts.sort(reverse=True)
@@ -564,7 +569,12 @@ class PyTest(TestCommand):
 
     def run_tests(self):
         import shlex
-        import pytest
+
+        try:
+            import pytest
+        except ImportError:
+            install_package("pytest")
+            import pytest
 
         errno = pytest.main(shlex.split(self.pytest_args))
         sys.exit(errno)
@@ -579,10 +589,8 @@ packages = [
             'genomics_tools.genotyping'
 ]
 
+# Absolutely contained, no external dependencies.
 requires = [
-    'requests>=2.21.0',
-    'six>=1.12.0',
-    'tqdm>=4.29.0',
 ]
 
 test_requires = [
@@ -599,9 +607,9 @@ setup(
         cmdclass={
             "develop" : PostDevelopCommand,
             "install" : PostInstallCommand,
-            "test" : PyTest
+            "test" : PyTest,
         },
-        test_requires=test_requires,
+        tests_requires=test_requires,
         entry_points={
             'console_scripts': [
                 'genomics_tools=genomics_tools.__main__:_main'

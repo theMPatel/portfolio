@@ -21,6 +21,7 @@ import os
 import sys
 import tempfile
 import traceback
+import uuid
 
 this_file = os.path.realpath(__file__)
 base_path = os.path.dirname(this_file)
@@ -35,7 +36,7 @@ from tools.environment import (
     log_progress, log_error,
     log_exception, log_algo_params,
     get_stack_len, set_base_depth,
-    populate_syspath, find_directory_on_path
+    populate_syspath, find_directory_on_path,
 )
 
 from genotyping import mutation_finder
@@ -84,11 +85,11 @@ def parse_cmdline():
 
     # I will instruct you to use --run to do a test run of the software!
     if args.run:
-
         tempdir = tempfile.mkdtemp()
         args.tempdir = os.path.join(tempdir, "tmp")
-        args.resultsdir = os.path.join(tempdir, "results")
-        os.makedirs(args.resultsdir)
+        args.resultsdir = os.path.join(tempdir)
+    else:
+        sys.exit(0)
 
     #return the arguments object
     return args, remaining
@@ -122,7 +123,7 @@ def main_throw_args(args, remaining):
     # Set's the base depth for logging so that we can get tabbed log
     # files that mimic the execution flow of the program
     set_base_depth(-(get_stack_len()))
-
+    base_temp = env.tempdir
     for file in os.listdir(sequence_dir):
         query_path = os.path.join(sequence_dir, file)
 
@@ -134,6 +135,7 @@ def main_throw_args(args, remaining):
             percent_identity=base_settings.percent_identity,
             min_relative_coverage=base_settings.min_relative_coverage
         )
+        env.tempdir = os.path.join(base_temp, str(uuid.uuid4()))
     
         # Actually, the below is a major refactor of the original
         # project layout. Before we were actually dynamically importing
@@ -144,11 +146,14 @@ def main_throw_args(args, remaining):
         # and run it's main method.
         mutation_finder.main(settings, env)
         log_message("")
+
         
     # And we are done!
     log_progress(100)
     log_message('Done running algorithm: {}!'.format(
-        "Mutation Finder"))    
+        "Mutation Finder"))
+    log_message("You can find the json formatted version of these "
+            "results at: {}".format(env.resultsdir))
 
 _tools_dirs = [
     os.path.normpath(os.path.expanduser("~/.tools")),
@@ -163,22 +168,6 @@ def main_throw():
         
     # Parse cmdline arguments
     args, remaining = parse_cmdline()
-
-    # In the actual project, we had a shared network drive
-    # that all nodes on the compute cluster had access to.
-    # One of the things on the compute was the default settings
-    # for the algorithms to be run, and the below would be
-    # placed in the run directory of a job which contained
-    # the settings that were requested by a remote client.
-    # These settings overrode anything defined in the default
-    # settings.
-    genotyper_settings_path = os.path.join(
-        os.getcwd(), 'genotyper_settings.json')
-
-    mutation_finder_settings = {}
-    if os.path.exists(genotyper_settings_path):
-        with open(genotyper_settings_path, 'r') as f:
-            genotyper_settings = json.load(f)
     
     # Update the path to add all the directories that might have
     # our tools.
@@ -201,3 +190,6 @@ def _main():
     finally:
         graceful_shutdown_logging()
         sys.exit(return_code)
+
+if __name__ == "__main__":
+    _main()

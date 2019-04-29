@@ -105,9 +105,8 @@ def find_mutations(sequence_database, results, min_relative_coverage):
 
     for reference, hits in regions.items():
         targets = sequence_database.targets[reference]
-        
-        for hit in hits:
 
+        for hit in hits:
             if hit.relative_len < min_relative_coverage:
                 continue
 

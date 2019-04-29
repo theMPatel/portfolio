@@ -277,6 +277,18 @@ def codon_translation(codon):
 
     return _AA_TRANSLATE.get(codon, 'X')
 
+def aminos_to_codons(amino):
+    """
+    Returns back all the codons for a particular amino acid.
+
+    :param amino: The AA to get codons for.
+    """
+
+    if amino not in _AA_BACK_TRANSLATE:
+        raise ValueError("Invalid codon!")
+
+    return _AA_BACK_TRANSLATE[codon]
+
 _FWD = 'ATGCRYSWKMBDHVN'
 _REV = 'TACGYRSWMKVHDBN'
 _COMPLEMENT = str.maketrans(_FWD, _REV)

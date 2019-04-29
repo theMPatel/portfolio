@@ -323,6 +323,15 @@ class GenotypeHit(object):
     def reference_stop(self, val):
         self._reference_stop = val + 1
 
+    def __str__(self):
+        return "GenotypeHit(" \
+            "ref={}, query={}, q_start={}, q_stop={}, " \
+            "ref_start={}, ref_end={}, identity={}, " \
+            "relative_len={}" \
+            .format(self.reference_id, self.query_id, self.query_start,
+                    self.query_stop, self.reference_start, self.reference_stop,
+                    self.identity, self.relative_len)
+
     @staticmethod
     def from_blast(line):
         # query_id  ref_id|len  iden    alignmentlen    mismatches
