@@ -315,11 +315,13 @@ class GenotypeResults(object):
         self._hits = []
 
     def read_file(self, flobj):
+        """
+        Provides an iterator on a BLAST hits file
 
+        :param flobj: The file obj to iterate over
+        """
         found_start = False
-
         for line in flobj:
-
             line = line.strip()
 
             # Empty line
@@ -338,7 +340,14 @@ class GenotypeResults(object):
             yield line
 
     def load_hits(self, filename, aligner):
+        """
+        Loads the hits from a file and passes it on to the
+        appropriate parser
 
+        :param filename: The filename to load
+        :param aligner: The name of the tools that created the
+            file.
+        """
         if aligner in GenotypeResults.hit_handlers:
             handler = GenotypeResults.hit_handlers[aligner]
         
@@ -347,23 +356,18 @@ class GenotypeResults(object):
 
         # If we are given a file path rather than a file obj
         if isinstance(filename, str):
-
             if os.path.exists(filename):
-
                 with open(filename, 'r') as f:
-
                     for line in self.read_file(f):
                         self._hits.append(handler(line))
 
             else:
-
                 raise RuntimeError('Provide file path is not a real'
                     ' path for alignment results parsing')
 
         else:
             # We were given a file handle
             for line in self.read_file(filename):
-
                 self._hits.append(handler(line))
 
         return self

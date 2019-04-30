@@ -87,16 +87,11 @@ class DbInfo(object):
 
         # Get all of the sequences in the directory
         for seq_file in os.listdir(dirpath):
-
-            # Create the file path
+            
             file_path = os.path.join(dirpath, seq_file)
-
-            # Check to make sure that this is a valid fasta
-            # file
             if not is_fasta(file_path):
                 continue
 
-            # Load the sequences themselves from the files
             sequences = parse_fasta(file_path)
 
             for seq_id, sequence in sequences.items():
@@ -104,8 +99,6 @@ class DbInfo(object):
                 # header split out into its different
                 # attributes plus the sequence
                 seq_info = seq_parser(seq_id, sequence)
-
-                # Get the allele information
                 allele_id = allele_id_template.format(
                     seq_info.locus, seq_info.allele)
 
@@ -117,35 +110,23 @@ class DbInfo(object):
                         seq_info.allele, 
                         len(sequence_counts[allele_id])
                     )
-
-                    # Set the seq_info, seq_counts just
-                    # functions to store the counts
                     sequence_counts[allele_id][new_id] = True
                     self._sequences[new_id] = seq_info
 
                 else:
-
-                    # Set the seq_info, seq_counts just
-                    # function to store the counts
                     sequence_counts[allele_id][allele_id] = True
                     self._sequences[allele_id] = seq_info
 
-        # Load notes if they exist
         file_path = os.path.join(dirpath, 'notes.txt')
-
         if os.path.exists(file_path):
-
             with open(file_path, 'r') as f:
-
                 for line in f:
-
                     line = line.strip()
-
+                    
                     if not line or line[0] == '#':
                         continue
 
                     notes_info = note_parser(line)
-
                     self._notes[notes_info.locus] = notes_info
 
     @property
@@ -157,9 +138,15 @@ class DbInfo(object):
         return self._notes
 
     def export_sequences(self, filepath):
+        """
+        Exports the sequences that were loaded into this
+        database onto the filesystem so we can pass it to
+        blast. It will format the headers in a way that we
+        can later parse and cross reference.
 
+        :param filepath: The path to dump the sequences to
+        """
         valid_dir(os.path.dirname(filepath))
-
         with open(filepath, 'w') as f:
 
             for seq_id, seq_info in self._sequences.items():

@@ -35,6 +35,18 @@ GenotypeRegion = namedtuple('GenotypeRegion', ['coverage', 'identity', 'location
 
 def mutation_detector(sequence_database, query_path, percent_identity,
     min_relative_coverage, env):
+    """
+    The primary dispatcher and external interface for the mutation 
+    detection pipeline.
+
+    :param sequence_database: The reference sequences to use.
+    :param query_path: The path to the query_file to search mutations in.
+    :param percent_identity: The minimum percent identity for alignment
+        matches.
+    :param min_relative_coverage: The minimum coverage in alignment for
+        a gene.
+    :param env: The env object to retrieve information from
+    """
     
     log_message('Exporting references...')
     reference_dir = os.path.join(env.tempdir, 'blastdb')
@@ -81,6 +93,14 @@ def mutation_detector(sequence_database, query_path, percent_identity,
     return interpretations
 
 def find_mutations(sequence_database, results, min_relative_coverage):
+    """
+    Primary function that will search for mutations in BLAST hits
+
+    :param sequence_database: The database of reference sequences
+    :param results: The BLAST hit results
+    :param min_relative_coverage: The minimum coverage in alignment for
+        a gene.
+    """
 
     regions = defaultdict(list)
 
