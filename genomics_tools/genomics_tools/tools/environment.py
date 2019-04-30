@@ -384,7 +384,6 @@ class Environment(object):
                 valid_dir(path)
 
                 # Set the attribute
-                print(setting)
                 setattr(self, setting, path)
 
         # Make sure we set ourselves up for logging
@@ -623,9 +622,7 @@ def initialize_logging(log_dir):
                 parameters['file_prep'](file_path)
 
         handler = parameters['handler'](file_path)
-        
         handler.setLevel(parameters['level'])
-
         if parameters['format']:
             handler.setFormatter(parameters['format'])
 

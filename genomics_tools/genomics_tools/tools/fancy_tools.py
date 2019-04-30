@@ -213,6 +213,7 @@ def pretty_aln(a, b, wrap=70):
     
     :param a: String to put on top.
     :param b: String to put on bottom.
+    :param wrap: After how many characters to start a new line
     """
     
     pipe_str = []

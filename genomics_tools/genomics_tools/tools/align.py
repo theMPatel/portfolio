@@ -40,12 +40,7 @@ def create_blastdb(fastaflname, dbpath):
     """
 
     valid_dir(os.path.dirname(dbpath))
-
     makeblastdb_name = 'makeblastdb'
-
-    if _platform == 'nt':
-        makeblastdb_name += '.exe'
-
     makeblastdb = shutil.which(makeblastdb_name)
 
     if makeblastdb is None:
@@ -113,21 +108,12 @@ def align_blast_nodb(query, subject, settings, env):
     outputfile = os.path.join(env.tempdir, 'blastout.txt')
     blastn_name = "blastn"
 
-    if _platform == 'nt':
-        blastn_name += '.exe'
-
     # blastn path
     blastn = shutil.which(blastn_name)
 
     # Check to make sure the tool exists
     if blastn is None:
         raise RuntimeError('Missing ncbi->blastn')
-
-    if _platform == 'nt':
-        blastn += '.exe'
-
-    if not os.path.exists(blastn):
-        raise RuntimeError('Missing blastn: {}'.format(blastn))
 
     if not os.path.exists(subject):
         raise RuntimeError('Path to subject sequence does'
@@ -162,88 +148,6 @@ def align_blast_nodb(query, subject, settings, env):
 
     # Log what we got out of the blastn
     for line in stdout.decode().strip().split('\n'):
-        log_message(line, extra=1)
-
-    if exit_code:
-        log_error(stderr.strip())
-        raise RuntimeError('Error running BLASTn')
-
-    log_message('Done running BLASTn!')
-
-    # Return the results as a GenotypeResults object
-    return GenotypeResults().load_hits(outputfile, 'blast')
-
-def align_blast(query, blastdb, settings, env):
-
-    # This is the output format that blastn will output
-    # 7 is a specific type of predefined header combination
-    # providing those headers after the 7 allows you to specify
-    # extras that may not be included in the 7 predefinition
-    blast_format = [
-        '7',
-        'qseqid',
-        'sseqid',
-        'pident',
-        'length',
-        'mismatch',
-        'gapopen',
-        'qstart',
-        'qend',
-        'sstart',
-        'send',
-        'evalue',
-        'bitscore'
-    ]
-
-    # If we want the sequences from the alignment
-    # Good for mutation finder and stx subtyper
-    if settings.include_sequences:
-        blast_format.extend(['qseq', 'sseq'])
-
-    # Create the format string
-    blast_formatstr = ' '.join(blast_format)
-
-    # Path for the output file
-    outputfile = os.path.join(env.localdir, 'blastout.txt')
-
-    # blastn path
-    blastn = os.path.join(env.toolsdir, 'all_tools/blastn')
-
-    if _platform == 'nt':
-        blastn += '.exe'
-
-    if not os.path.exists(blastn):
-        raise RuntimeError('Missing blastn: {}'.format(blastn))    
-
-    # BLAST command
-    blastn_args = [
-        blastn,
-       '-task', settings.task,
-       '-query', query,
-       '-db', blastdb,
-       '-num_threads', str(max(1, min(4, env.threads-1))),
-       '-out', outputfile,
-       '-perc_identity', str(int(100.0*settings.identity)),
-       '-outfmt',  '{}'.format(blast_formatstr),
-       '-max_target_seqs', '1000000',
-       '-dust', 'no'
-    ]
-
-    log_message('BLASTn running command: {}'.format(
-        ' '.join(blastn_args)))
-
-    # Run the blast command
-    child = sp.Popen(blastn_args, stdout=sp.PIPE, stderr=sp.PIPE)
-
-    # Check the output of the blastn
-    # this will wait until the process has finished
-    stdout, stderr = child.communicate()
-
-    # Check the exit code
-    exit_code = child.returncode
-
-    # Log what we got out of the blastn
-    for line in stdout.strip().split('\n'):
         log_message(line, extra=1)
 
     if exit_code:

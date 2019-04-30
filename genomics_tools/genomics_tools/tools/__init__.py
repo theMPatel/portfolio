@@ -8,11 +8,6 @@
 #
 ###################################################################
 
-# We want pdb to be available for all files if the developer is
-# running this outside of a production environment.
-if __debug__:
-    import pdb
-
 import warnings
 import functools
 

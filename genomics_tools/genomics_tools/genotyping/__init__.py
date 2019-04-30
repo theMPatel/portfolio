@@ -13,8 +13,3 @@
 
 # Human friendly version for the genotyping algorithm
 __version__ = '1.0.0'
-
-# We want pdb to be available for all files if the developer is
-# running this outside of a production environment.
-if __debug__:
-    import pdb

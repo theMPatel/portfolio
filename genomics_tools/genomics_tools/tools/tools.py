@@ -139,7 +139,6 @@ def get_all_file_exts(path):
         return root, []
 
     all_exts = [ext]
-
     real_root, exts = get_all_file_exts(root)
     exts += all_exts
 
@@ -157,7 +156,6 @@ def is_fasta(path):
         return False
 
     root, exts = get_all_file_exts(path)
-
     return bool(set(exts) & _FASTAEXTS)
 
 _GENBANKEXTS = set(['.gb', '.gbk'])
@@ -173,7 +171,6 @@ def is_genbank(path):
         return False
 
     root, exts = get_all_file_exts(path)
-
     return bool(set(exts) & _GENBANKEXTS)
 
 def fasta_iterator_path(path_to_file):

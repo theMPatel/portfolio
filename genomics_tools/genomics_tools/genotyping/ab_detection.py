@@ -37,27 +37,20 @@ def mutation_detector(sequence_database, query_path, percent_identity,
     min_relative_coverage, env):
     
     log_message('Exporting references...')
-
     reference_dir = os.path.join(env.tempdir, 'blastdb')
-    
     valid_dir(reference_dir)
-
     reference_path = os.path.join(reference_dir, 'references.fasta')
-
     sequence_database.export_sequences(reference_path)
-
     log_message('Successfully exported reference database...')
 
     # Create the path to the blast database
     blast_db_path = os.path.join(env.tempdir, 'blastdb', 'db.fasta')
-
     log_message('Creating blast database...')
 
     # Log that we were successful
     log_message('Successfully created blast database!')
 
-    # Create the blast settings so that we can run the thing!
-    # Return the sequences so that we can see if we've found
+    # Return the sequences so that we can search for
     # point mutations
     blast_settings = BLASTSettings(
         task = 'blastn',
@@ -68,8 +61,6 @@ def mutation_detector(sequence_database, query_path, percent_identity,
         )
 
     log_message('BLASTing query genome against reference database')
-    
-    # Run the alignment
     results = align_blast_nodb(
         query_path,
         reference_path,
@@ -79,7 +70,6 @@ def mutation_detector(sequence_database, query_path, percent_identity,
 
     log_message('Successfully BLASTed query genome against reference database')
     log_message('Searching for mutations...')
-
     interpretations = find_mutations(
         sequence_database,
         results,
@@ -102,7 +92,6 @@ def find_mutations(sequence_database, results, min_relative_coverage):
 
     # Store the found resistance:
     mutation_results = defaultdict(list)
-
     for reference, hits in regions.items():
         targets = sequence_database.targets[reference]
 
@@ -124,7 +113,6 @@ def find_mutations(sequence_database, results, min_relative_coverage):
                 ref_gaps = [i for i, s in enumerate(hit.reference_seq) if s == '-']
 
             for target in targets:
-
                 if target.coding_gene:
                     results = validate_coding_gene(hit, target, ref_gaps,
                                                     query_gaps)
@@ -506,25 +494,18 @@ def eliminate_overlap(regions, min_merge_overlap):
     regions = [hit for region in regions.itervalues() for \
         hit in region.predicted]
 
-    # Create the disjoint sets object
     dset = Disjointset(len(regions))
 
-    # Create the indices of the hits list
     for i, j in combinations(range(len(regions)), 2):
-
         hit1 = regions[i].locations
         hit2 = regions[j].locations
 
         if encompassed(hit1, hit2, min_merge_overlap):
-            # If the two hits are overlapping, link them
             dset.merge(i,j)
 
-    # Create a dictionary of the parents and the best hits:
     best_hits = defaultdict(set)
-
     for i in range(len(regions)):
 
-        # Get the parent of hit at this index
         parent = dset.get_parent(i)
 
         # Add it to the set of children
@@ -537,9 +518,6 @@ def eliminate_overlap(regions, min_merge_overlap):
     # For each of the best parents, see if the children are better
     to_remove = []
     for parent, children in best_hits.items():
-
-        # Parent and children will be part of
-        # childrens list
         hits_here = list(children)
 
         # Sort the regions based on identity:
@@ -550,23 +528,19 @@ def eliminate_overlap(regions, min_merge_overlap):
 
     # Sort the indices
     to_remove.sort()
-
-    # Remove the genotypes
     for index in reversed(to_remove):
         del regions[index]
 
-    # Return a dictionary of references and it's regions
     accepted = defaultdict(list)
-
     for region in regions:
-
         references_here = set()
 
         for hit in region.locations:
             references_here.add(hit.reference_id)
 
         if len(references_here) > 1:
-            raise RuntimeError('This should never happen!')
+            raise RuntimeError('This should never happen: more than one reference '
+                ' associated with a region!')
 
         accepted[references_here.pop()].append(region)
 
@@ -735,7 +709,6 @@ class Genotype(object):
         # identity
         self._coverage = self._predicted[0].coverage
         self._identity = self._predicted[0].identity
-
         return True
 
     @staticmethod
@@ -750,7 +723,6 @@ class Genotype(object):
 
         # Dictionary for all of the genotypes
         genotypes = {}
-
         for reference, hits in hit_regions.items():
 
             # Get the length of the reference

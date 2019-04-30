@@ -11,10 +11,6 @@
 #
 ###################################################################
 
-# Set the version here. It makes more sense to set it as a variable
-# here because if you edit the file, you can edit the version at the
-# the same time
-
 from tools.environment import (
     log_message, log_error,
     log_progress, log_algo_version,
@@ -55,24 +51,18 @@ MutationTarget = namedtuple('MutationTarget', [
 
 def main(settings, env):
 
-    # Log the initial message
     log_message('Starting running mutation finder algorithm')
-
-    # Set the initial version information
     log_algo_version(
         algo_version = settings.version,
         settings = settings,
         env = env
     )
 
-    # Get the database path
     database_path = settings.database
-
     log_message('Database path found at: {}'.format(
         database_path))
     
     log_message('Using query at: {}'.format(settings.query))
-
     log_message('Loading resistance sequences and associated'
         ' information')
 
@@ -240,7 +230,6 @@ class DbInfo(DbInfo):
     @property
     def rna_genes(self):
         return self._rna_genes
-    
 
 def results_parser(dbinfo, interpretations):
     """
