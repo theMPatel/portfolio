@@ -73,7 +73,10 @@ Assuming you are in the directory where setup.py exists, you can run:
 ```bash
 pip install -e .
 ```
-This will install the tools in editable mode. If everything passes you can run and see the fruits of this endeavor!
+This will install the tools in editable mode. If everything passes you can run and see the fruits of this endeavor! __NOTE__: If you install the tools this way, you will not see any of the logging that I do regarding the external dependencies that I download. You will need to run the below command if you want extra logging.
+```bash
+./setup.py install
+```
 
 ### Running the tooling
 ```bash
