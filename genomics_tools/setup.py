@@ -297,7 +297,7 @@ def git_checkout(branch, stdout=None, stderr=None):
         raise ValueError("Invalid branch argument")
 
     args = ["git", "checkout", branch]
-    subprocess.Popen(args, stdout=stdout, stderr=stderr)
+    subprocess.Popen(args, stdout=stdout, stderr=stderr).wait()
 
 def git_reset_hard_head(stdout=None, stderr=None):
     """
@@ -308,7 +308,7 @@ def git_reset_hard_head(stdout=None, stderr=None):
     :param directory: The directory to do the reset
     """
     args = ['git', 'reset', '--hard', 'HEAD']
-    subprocess.Popen(args, stdout=stdout, stderr=stderr)
+    subprocess.Popen(args, stdout=stdout, stderr=stderr).wait()
 
 def git_pull(branch, stdout=None, stderr=None):
     """
@@ -325,7 +325,7 @@ def git_pull(branch, stdout=None, stderr=None):
 
     git_checkout(branch, stdout=stdout, stderr=stderr)
     args = ["git", "pull"]
-    subprocess.Popen(args, stdout=stdout, stderr=stderr)
+    subprocess.Popen(args, stdout=stdout, stderr=stderr).wait()
 
 BLAST_DIR = "blast/executables/blast+/LATEST/"
 def fetch_ncbi_tools(tools_dir, retry_count=0):
@@ -443,7 +443,8 @@ def fetch_pointfinder_db(tools_dir):
     err = out
 
     if to_clone:
-        subprocess.Popen(args, stdout=out, stderr=err)
+        log.info("Cloning to: {}".format(directory_path))
+        subprocess.Popen(args, stdout=out, stderr=err).wait()
 
     with chdir_and_return(directory_path):
         git_reset_hard_head(stdout=out, stderr=err)
@@ -631,7 +632,6 @@ class RemoveExtraTools(develop):
         Will go through all the places where I could have installed things
         and removes the directories
         """
-
         for root, tail in itertools.product(_tools_dirs,
             _valid_directory_names.values()):
             to_rm = os.path.join(root, tail)
