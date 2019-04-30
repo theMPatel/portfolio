@@ -69,7 +69,7 @@ If you would like to see the results of the unit tests that have been setup for 
 If you do not have the appropriate test dependencies, I will install them on the fly.
 
 ### Installing the tooling
-You can run:
+Assuming you are in the directory where setup.py exists, you can run:
 ```bash
 pip install -e .
 ```
