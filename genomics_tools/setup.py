@@ -454,8 +454,9 @@ def fetch_pointfinder_db(tools_dir):
 
 def fetch_sequence_data(tools_dir):
     """
-    Fetches assemblies from the NCBI ftp site
-    GCA_000299455.1_ASM29945v1_genomic.fna
+    Fetches assemblies from the NCBI ftp site.
+
+    :param tools_dir: The place where to install the sequences.
     """
     
     log.info("Fetching demonstration sequences..")
