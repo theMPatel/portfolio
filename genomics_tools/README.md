@@ -2,15 +2,15 @@
 
 This set of code represents some of the work that I did as a Fellow at the CDC in the Enteric Diseases Laboratory Branch. The purpose of the tools were to provide the ability to predict certain genetic traits of interest deemed important from the perspective of microbial public health surveillance.
 
-One of the more important aspects of these tools was its ability to predict antibiotic resistance, specifically in foodborne illness causing pathogens (such as E. coli). I have packaged up this particular functionality into a sample for you to run and see the results for yourself.
+One of the more important aspects of these tools is its ability to predict antibiotic resistance, specifically in foodborne illness causing pathogens (such as E. coli). I have packaged up this particular functionality into a sample for you to run and see the results for yourself.
 
-The reasons as to why I have chosen this particular sample to share with you lie partially in nostalgia: It was the first major software product for which I was responsible for the design, implementation and delivery. I have hopefully since come further as an engineer in capability but I felt that this is an accurate representation of the level of complexity I was able to manage coming right out of college.
+The reason as to why I have chosen this particular sample to share with you lie partially in nostalgia: It was the first major software product for which I was responsible for the design, implementation and delivery. I have hopefully since come further as an engineer in capability but I felt that this is an accurate representation of the level of complexity I was able to manage coming right out of college.
 
-One more thing, these tools were originally (and still are) run on a high performance compute cluster (HPC) that is on-site at CDC. If you decide to take a closer look at the code, you might be able to answer some of your own questions having this in mind. I'm excited to hear what thoughts you have on this piece of code and I hope using this will be an enjoyable experience!
+One more thing, these tools were originally (and still are) run on a high performance compute cluster (HPC) that is on-site at CDC so what is presented here is not completely representative of what the larger project looks like. I'm excited to hear what thoughts you have on this piece of code and I hope using this will be an enjoyable experience!
 
 ## Setting things up
 
-I have repackaged the original tools and turned it into a wheel installable package. If you are unfamiliar with python's distribution system, a wheel is basically an archive of your source code in a way that makes installing it easy for the end-user. Prior to running the install script in this repository, you should ensure a few things:
+I have repackaged the original tools and turned it into a pip installable package (python's package distribution system). Prior to running the install script in this repository, you should ensure a few things:
 
 1. Make sure you have python3 installed, preferably one that is greater than 3.5
     * [Windows](https://www.python.org/downloads/windows/)
@@ -29,7 +29,7 @@ I have repackaged the original tools and turned it into a wheel installable pack
     * Linux
         * Use apt or comparable
 
-3. It is recommended that you create python virtual environment to install these tools into. I would prefer not to muck up your system python with dependencies and installation files from these tools. This is a choice that I leave up to you. Below is the command that has worked for me on all platforms (linux, macos, windows) to create a virtualenv. Make sure that the parent directories for the final venv directory have already been created, otherwise you will get an error. It should leave you with a directory that has a self contained python environment.
+3. It is recommended that you create a python virtual environment (venv) to install these tools into. I would prefer not to muck up your system python with dependencies and installation files from these tools. This is a choice that I leave up to you. Below is the command that has worked for me on all platforms (linux, macos, windows) to create a venv. Make sure that the parent directories for the final venv directory have already been created, otherwise you will get an error. It should leave you with a directory that has a self contained python environment.
 
     ```bash
     python3 -m venv "${path_to_home}"/.virtualenvs/genomics_tools
