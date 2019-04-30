@@ -18,8 +18,7 @@ from tools.environment import (
 
 from tools.align import (
     BLASTSettings, create_blastdb,
-    align_blast, align_blast_nodb,
-    GenotypeHit
+    align_blast_nodb, GenotypeHit
 )
 
 from tools.tools import (
