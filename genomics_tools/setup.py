@@ -22,6 +22,7 @@ import functools
 import gzip
 import hashlib
 import io
+import itertools
 import os
 import shutil
 import subprocess
@@ -618,6 +619,32 @@ class PyTest(TestCommand):
         errno = pytest.main(shlex.split(self.pytest_args))
         sys.exit(errno)
 
+class RemoveExtraTools(develop):
+    """
+    Class that will help to cleanly uninstall anything that I have
+    downloaded to your computer
+    """
+
+    def run(self):
+        """
+        Will go through all the places where I could have installed things
+        and removes the directories
+        """
+
+        for root, tail in itertools.product(_tools_dirs,
+            _valid_directory_names.values()):
+            to_rm = os.path.join(root, tail)
+            if os.path.exists(to_rm):
+                log.info("Removing: {}".format(to_rm))
+
+                try:
+                    if os.path.isdir(to_rm):
+                        shutil.rmtree(to_rm)
+                    else:
+                        os.unlink(to_rm)
+                except OSError:
+                    log.info("Failed to remove: {}".format(to_rm))
+
 __version__ = '0.0.1-dev'
 __author__ = 'Milan Patel'
 __title__ = 'genomics_tools'
@@ -647,6 +674,7 @@ setup(
             "develop" : PostDevelopCommand,
             "install" : PostInstallCommand,
             "test" : PyTest,
+            "uninstall" : RemoveExtraTools
         },
         tests_requires=test_requires,
         entry_points={

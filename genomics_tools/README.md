@@ -80,6 +80,16 @@ This will install the tools in editable mode. If everything passes you can run a
 genomics_tools --run
 ```
 
+### Uninstalling
+You can uninstall the tools via pip using:
+```bash
+pip uninstall genomics_tools
+```
+Additionally, if you want to remove the extra tools that I download you can run:
+```bash
+./setup.py uninstall
+```
+
 ### Postscript
 
 I have tested these tools on Ubuntu 18.04, macOS Mojave (10.14.4) and Windows 10. If these tools do not work for you, I would love to get some feedback on any errors you encounter so that I can make this more robust. Hope you have enjoyed this exercise!
