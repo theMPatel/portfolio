@@ -15,6 +15,7 @@
 #
 ###################################################################
 
+import contextlib
 from distutils import log
 import ftplib
 import functools
@@ -82,6 +83,28 @@ def prompt_continue(message=None):
         answer = input("Please enter (Y/N): ").lower()
 
     return answer == 'y'
+
+@contextlib.contextmanager
+def chdir_and_return(directory):
+    """
+    If you need to run a particular command in specific
+    directory but would like for the program to return
+    to its original working directory, you can use
+    this function to automatically maintain that state
+
+    :param directory: The directory to return to
+    """
+    old = os.getcwd()
+
+    if not os.path.exists(directory) or not \
+        os.path.isdir(directory):
+        raise ValueError("Invalid directory: {}".format(directory))
+
+    try:
+        os.chdir(directory)
+        yield
+    finally:
+        os.chdir(old)
 
 def chunked_file_reader(file_obj, chunk_size=io.DEFAULT_BUFFER_SIZE):
     while True:
@@ -257,7 +280,7 @@ def gunzip_file(source, destination):
     source.close()
     destination.close()
 
-def git_checkout(branch):
+def git_checkout(branch, stdout=None, stderr=None):
     """
     Checks out a particular branch in a git repo. It assumes
     that the current working directory of this script
@@ -273,9 +296,20 @@ def git_checkout(branch):
         raise ValueError("Invalid branch argument")
 
     args = ["git", "checkout", branch]
-    subprocess.check_call(args)
+    subprocess.Popen(args, stdout=stdout, stderr=stderr)
 
-def git_pull(branch):
+def git_reset_hard_head(stdout=None, stderr=None):
+    """
+    Assumes that the current working directory of the script is
+    in the git repo you want. Resets the local working directory
+    to known state
+
+    :param directory: The directory to do the reset
+    """
+    args = ['git', 'reset', '--hard', 'HEAD']
+    subprocess.Popen(args, stdout=stdout, stderr=stderr)
+
+def git_pull(branch, stdout=None, stderr=None):
     """
     Assumes that the current working directory of the script is
     in the git repo you want. Also assumes that we don't need
@@ -288,9 +322,9 @@ def git_pull(branch):
     if not branch or not isinstance(branch, str):
         raise ValueError("Invalid branch argument")
 
-    git_checkout(branch)
+    git_checkout(branch, stdout=stdout, stderr=stderr)
     args = ["git", "pull"]
-    subprocess.check_call(args)
+    subprocess.Popen(args, stdout=stdout, stderr=stderr)
 
 BLAST_DIR = "blast/executables/blast+/LATEST/"
 def fetch_ncbi_tools(tools_dir, retry_count=0):
@@ -378,6 +412,8 @@ def fetch_ncbi_tools(tools_dir, retry_count=0):
     untar_contents_to_dir(tar_file_path, tarfile_final_path)
     tempdir_obj.cleanup()
 
+_default_pointfinder_branch = 'master'
+_default_commit_hash = "3f07218144693c977f976e6e26a3d68d99011a34"
 def fetch_pointfinder_db(tools_dir):
     """
     Will fetch the point finder database that we use to BLAST
@@ -400,19 +436,20 @@ def fetch_pointfinder_db(tools_dir):
     git_directory = os.path.join(directory_path, ".git")
 
     args = ["git", "clone", database, directory_path]
+    to_clone = not (os.path.exists(directory_path) and os.path.exists(git_directory))
 
-    if os.path.exists(directory_path) and os.path.exists(git_directory):
-        curr_dir = os.getcwd()
-        os.chdir(directory_path)
-        
-        git_pull(directory_path)
-        
-        os.chdir(curr_dir)
+    out = subprocess.DEVNULL
+    err = out
 
-        return
+    if to_clone:
+        subprocess.Popen(args, stdout=out, stderr=err)
 
-    # Straight forward, this is all we need to do
-    subprocess.check_call(args)
+    with chdir_and_return(directory_path):
+        git_reset_hard_head(stdout=out, stderr=err)
+        git_pull(_default_pointfinder_branch, stdout=out, stderr=err)
+        git_checkout(_default_commit_hash, stdout=out, stderr=err)
+
+    log.info("Successfully retrieved database!")
 
 def fetch_sequence_data(tools_dir):
     """
@@ -490,7 +527,7 @@ def retrieve_necessary_deps():
 
     chosen_tools_dir = ''
     for path in _tools_dirs:
-        log.info("Checking: {}".format(path))
+        log.info("Checking for pre-installed tools: {}".format(path))
 
         if not os.path.exists(path):
             continue
@@ -503,7 +540,7 @@ def retrieve_necessary_deps():
                 _valid_directory_names.values()
                 )
             )
-        log.info(str(paths))
+
         if any(os.path.exists(p) for p in paths):
             chosen_tools_dir = path
             break
@@ -529,8 +566,8 @@ def retrieve_necessary_deps():
         raise ValueError("Unable to select an ideal spot for my extra tools!")
 
     fetch_ncbi_tools(chosen_tools_dir)
-    fetch_pointfinder_db(chosen_tools_dir)
     fetch_sequence_data(chosen_tools_dir)
+    fetch_pointfinder_db(chosen_tools_dir)
 
 class PostDevelopCommand(develop):
     """
@@ -544,6 +581,7 @@ class PostDevelopCommand(develop):
         before continuing on to install any non-pip dependencies.
         """
         develop.run(self)
+        log.info("Fetching custom dependencies")
         retrieve_necessary_deps()
 
 class PostInstallCommand(install):
@@ -558,6 +596,7 @@ class PostInstallCommand(install):
         before continuing on to install any non-pip dependencies.
         """
         install.run(self)
+        log.info("Fetching custom dependencies")
         retrieve_necessary_deps()
 
 class PyTest(TestCommand):
